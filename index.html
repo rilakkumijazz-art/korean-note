@@ -536,11 +536,11 @@ const DEFAULT_DATA = {
       startDate: todayStr(),
       day: 1,
       members: [
-        { id: 'm-yeji', name: 'Yeji', color: '#EAEAEA' },
-        { id: 'm-lia', name: 'Lia', color: '#FF8FB1' },
+        { id: 'm-yeji', name: 'Yeji', color: '#7B6FB0' },
+        { id: 'm-lia', name: 'Lia', color: '#FF6B9D' },
         { id: 'm-ryujin', name: 'Ryujin', color: '#E54B4B' },
-        { id: 'm-chaeryeong', name: 'Chaeryeong', color: '#5DAEDE' },
-        { id: 'm-yuna', name: 'Yuna', color: '#F5C518' },
+        { id: 'm-chaeryeong', name: 'Chaeryeong', color: '#3D8BC4' },
+        { id: 'm-yuna', name: 'Yuna', color: '#C68A1A' },
       ],
       lyrics: [
         { id: uid(), section: 'サビ', memberId: '', ko: '', kana: '', ja: '' },
@@ -590,13 +590,24 @@ function migrateState(parsed) {
       if (!Array.isArray(s.members)) s.members = [];
       if (s.id === 'seed-motto' && s.members.length === 0) {
         s.members = [
-          { id: 'm-yeji', name: 'Yeji', color: '#EAEAEA' },
-          { id: 'm-lia', name: 'Lia', color: '#FF8FB1' },
+          { id: 'm-yeji', name: 'Yeji', color: '#7B6FB0' },
+          { id: 'm-lia', name: 'Lia', color: '#FF6B9D' },
           { id: 'm-ryujin', name: 'Ryujin', color: '#E54B4B' },
-          { id: 'm-chaeryeong', name: 'Chaeryeong', color: '#5DAEDE' },
-          { id: 'm-yuna', name: 'Yuna', color: '#F5C518' },
+          { id: 'm-chaeryeong', name: 'Chaeryeong', color: '#3D8BC4' },
+          { id: 'm-yuna', name: 'Yuna', color: '#C68A1A' },
         ];
       }
+      // One-time color upgrade for paper background visibility (only if still using old defaults)
+      const colorUpgrade = {
+        'm-yeji': { from: '#EAEAEA', to: '#7B6FB0' },
+        'm-lia':  { from: '#FF8FB1', to: '#FF6B9D' },
+        'm-chaeryeong': { from: '#5DAEDE', to: '#3D8BC4' },
+        'm-yuna': { from: '#F5C518', to: '#C68A1A' },
+      };
+      s.members.forEach(m => {
+        const u = colorUpgrade[m.id];
+        if (u && m.color === u.from) m.color = u.to;
+      });
       (s.lyrics || []).forEach(r => { if (r.memberId === undefined) r.memberId = ''; });
       // Seed Motto vocab + grammar (idempotent — only adds if not already present)
       if (s.id === 'seed-motto') {
