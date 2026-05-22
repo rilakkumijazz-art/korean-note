@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>한글노트 — ハングルノート</title>
+<style>
+  :root {
+    --paper: #fbf7ee;
+    --paper-edge: #efe6d0;
+    --ink: #2a2417;
+    --accent: #c5482e;
+    --accent2: #2f6b8f;
+    --rule: #b8c8d9;
+    --margin: #e2b8b0;
+    --muted: #8a7f6b;
+    --ok: #2f8a4f;
+    --warn: #c98a1a;
+    --bg: #f3ede0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Hiragino Sans', 'Noto Sans KR', 'Noto Sans JP', system-ui, sans-serif; }
+  body { min-height: 100vh; }
+
+  header {
+    background: linear-gradient(180deg, #fff 0%, #f7efde 100%);
+    border-bottom: 2px solid var(--paper-edge);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+  header h1 .ja { font-size: 14px; color: var(--muted); margin-left: 8px; font-weight: normal; }
+  nav { display: flex; gap: 6px; }
+  nav button {
+    background: transparent; border: 1px solid var(--paper-edge); color: var(--ink);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer; font-size: 14px;
+    transition: all .15s;
+  }
+  nav button:hover { background: var(--paper); }
+  nav button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .header-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .header-actions button, .btn {
+    background: var(--paper); border: 1px solid var(--paper-edge); color: var(--ink);
+    padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-ghost { background: transparent; border-style: dashed; }
+  .btn-danger { background: transparent; color: var(--accent); border-color: var(--accent); }
+  .btn-sm { padding: 3px 8px; font-size: 12px; }
+
+  main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* === Library === */
+  .library-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .library-head h2 { margin: 0; font-size: 18px; }
+  .library-head .stat { color: var(--muted); font-size: 13px; }
+  .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .toc-card {
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-left: 6px solid var(--accent);
+    border-radius: 6px;
+    padding: 16px;
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+    position: relative;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toc-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.06); }
+  .toc-card .artist { color: var(--muted); font-size: 12px; }
+  .toc-card .title { font-size: 18px; font-weight: 600; }
+  .toc-card .meta { color: var(--muted); font-size: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .toc-card .progress-bar { background: var(--paper-edge); height: 6px; border-radius: 3px; overflow: hidden; }
+  .toc-card .progress-bar > div { background: var(--ok); height: 100%; }
+  .toc-card .card-actions { position: absolute; top: 8px; right: 8px; display: none; gap: 4px; }
+  .toc-card:hover .card-actions { display: flex; }
+  .toc-card.empty {
+    border-left-color: var(--paper-edge);
+    border-style: dashed;
+    background: transparent;
+    color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 140px;
+    font-size: 28px;
+  }
+
+  /* === Notebook view === */
+  .notebook-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; gap: 10px; flex-wrap: wrap;
+  }
+  .notebook-bar .left, .notebook-bar .right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .song-title-edit { font-size: 18px; font-weight: 600; background: transparent; border: none; border-bottom: 1px dashed var(--paper-edge); padding: 4px; color: var(--ink); font-family: inherit; }
+  .song-title-edit:focus { outline: none; border-bottom-color: var(--accent); }
+  .song-artist-edit { font-size: 13px; color: var(--muted); background: transparent; border: none; border-bottom: 1px dashed var(--paper-edge); padding: 4px; color: var(--muted); font-family: inherit; }
+
+  .notebook-spread {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+    perspective: 1500px;
+  }
+  @media (max-width: 900px) {
+    .notebook-spread { grid-template-columns: 1fr; }
+  }
+  .page {
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: 4px;
+    padding: 20px 22px;
+    min-height: 600px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    background-image:
+      linear-gradient(to right, transparent 38px, var(--margin) 38px, var(--margin) 40px, transparent 40px),
+      repeating-linear-gradient(to bottom, transparent, transparent 27px, var(--rule) 27px, var(--rule) 28px);
+    transition: transform .25s ease, opacity .25s;
+  }
+  .page.flip-out-left { transform: rotateY(-15deg); opacity: 0.4; }
+  .page.flip-out-right { transform: rotateY(15deg); opacity: 0.4; }
+  .page h2 { margin: 0 0 12px 0; font-size: 16px; color: var(--accent2); border-bottom: 2px solid var(--accent2); padding-bottom: 4px; padding-left: 16px; }
+  .page h3 { margin: 18px 0 8px 0; font-size: 14px; color: var(--accent); padding-left: 16px; }
+  .page > * { padding-left: 16px; }
+  .page > h2 { padding-left: 16px; }
+
+  table.data { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.4); }
+  table.data th, table.data td { border-bottom: 1px solid var(--paper-edge); padding: 6px 8px; text-align: left; font-size: 13px; vertical-align: top; }
+  table.data th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(0,0,0,0.02); }
+  table.data td input, table.data td select, table.data td textarea {
+    width: 100%; border: none; background: transparent; font-family: inherit; font-size: 13px; padding: 2px;
+    color: var(--ink); resize: vertical;
+  }
+  table.data td input:focus, table.data td textarea:focus, table.data td select:focus { outline: 1px solid var(--accent2); background: white; }
+  table.data .ko { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 14px; }
+  table.data .row-actions { white-space: nowrap; }
+  table.data .row-actions button { background: none; border: none; cursor: pointer; padding: 2px 4px; color: var(--muted); font-size: 14px; }
+  table.data .row-actions button:hover { color: var(--accent); }
+  .mastered-tag { background: var(--ok); color: white; font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+
+  /* Member color coding */
+  .member-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 16px 8px 16px; margin-bottom: 8px; background: rgba(0,0,0,0.03); border-radius: 6px; }
+  .member-bar .label { color: var(--muted); font-size: 12px; margin-right: 4px; }
+  .member-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 12px; cursor: pointer; border: 1px solid transparent; background: rgba(255,255,255,0.6); }
+  .member-chip:hover { border-color: var(--paper-edge); }
+  .member-chip .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); display: inline-block; }
+  .member-chip.edit-chip { color: var(--muted); border-style: dashed; border-color: var(--paper-edge); background: transparent; }
+  .member-select { font-size: 12px; padding: 2px 4px; border: 1px solid var(--paper-edge); background: white; border-radius: 3px; font-family: inherit; }
+  .lyric-ko-wrap { display: block; padding: 2px 6px; border-radius: 3px; }
+  .lyric-ko-wrap textarea { font-weight: 500; }
+
+  .grammar-card, .phrase-card {
+    background: rgba(255,255,255,0.5);
+    border-left: 3px solid var(--accent2);
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border-radius: 0 4px 4px 0;
+    position: relative;
+  }
+  .grammar-card .pattern { font-weight: 600; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; color: var(--accent2); }
+  .grammar-card .meaning { font-size: 13px; color: var(--muted); margin: 2px 0; }
+  .grammar-card .example { font-size: 13px; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+  .grammar-card .example.my { color: var(--accent); }
+  .grammar-card input, .grammar-card textarea {
+    width: 100%; border: none; background: transparent; font-family: inherit;
+    border-bottom: 1px dashed var(--paper-edge); padding: 2px; font-size: 13px;
+    color: inherit; resize: vertical;
+  }
+  .grammar-card input:focus, .grammar-card textarea:focus { outline: none; border-bottom-color: var(--accent2); background: white; }
+  .grammar-card .delete-x, .phrase-card .delete-x {
+    position: absolute; top: 4px; right: 6px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px;
+  }
+  .grammar-card .delete-x:hover, .phrase-card .delete-x:hover { color: var(--accent); }
+
+  .check-row {
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+    background: rgba(255,255,255,0.5); padding: 10px; border-radius: 4px; font-size: 13px;
+  }
+  .check-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .check-row select, .check-row input { background: transparent; border: 1px solid var(--paper-edge); padding: 3px 6px; border-radius: 3px; font-family: inherit; }
+
+  /* === Quiz === */
+  .quiz-setup { background: var(--paper); border: 1px solid var(--paper-edge); padding: 24px; border-radius: 8px; max-width: 600px; margin: 0 auto; }
+  .quiz-setup h2 { margin-top: 0; }
+  .quiz-setup label { display: block; margin: 14px 0 4px; font-size: 13px; color: var(--muted); }
+  .quiz-setup select, .quiz-setup input { width: 100%; padding: 8px; border: 1px solid var(--paper-edge); border-radius: 4px; font-family: inherit; font-size: 14px; background: white; }
+  .quiz-setup .row { display: flex; gap: 12px; }
+  .quiz-setup .row > * { flex: 1; }
+  .quiz-setup .start-btn { margin-top: 20px; width: 100%; padding: 12px; font-size: 15px; }
+
+  .quiz-stage { max-width: 700px; margin: 0 auto; }
+  .quiz-progress { color: var(--muted); font-size: 13px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .quiz-card {
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: 12px;
+    padding: 60px 40px;
+    text-align: center;
+    min-height: 280px;
+    display: flex; flex-direction: column; justify-content: center; gap: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+  }
+  .quiz-prompt { font-size: 36px; font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
+  .quiz-prompt.ja { font-size: 28px; font-family: 'Hiragino Sans', sans-serif; }
+  .quiz-sub { color: var(--muted); font-size: 14px; }
+  .quiz-answer { font-size: 24px; color: var(--accent); }
+  .quiz-input { font-size: 20px; padding: 10px 14px; border: 1px solid var(--paper-edge); border-radius: 6px; text-align: center; width: 100%; font-family: inherit; background: white; }
+  .quiz-input:focus { outline: 2px solid var(--accent2); }
+  .quiz-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .quiz-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .quiz-choice {
+    padding: 14px; border: 1px solid var(--paper-edge); background: white; border-radius: 6px;
+    cursor: pointer; font-size: 16px; font-family: inherit; transition: all .1s;
+  }
+  .quiz-choice:hover { background: var(--paper); }
+  .quiz-choice.correct { background: var(--ok); color: white; border-color: var(--ok); }
+  .quiz-choice.wrong { background: var(--accent); color: white; border-color: var(--accent); }
+  .quiz-result { background: var(--paper); border: 1px solid var(--paper-edge); border-radius: 8px; padding: 32px; text-align: center; }
+  .quiz-result .score { font-size: 48px; color: var(--accent); margin: 8px 0; }
+
+  /* === Modal === */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--paper); border-radius: 8px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+  .modal h3 { margin-top: 0; }
+  .modal label { display: block; margin: 10px 0 3px; font-size: 13px; color: var(--muted); }
+  .modal input { width: 100%; padding: 8px; border: 1px solid var(--paper-edge); border-radius: 4px; font-family: inherit; }
+  .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  .hidden { display: none !important; }
+
+  .empty-state { color: var(--muted); padding: 30px; text-align: center; font-size: 13px; font-style: italic; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 20px; border-radius: 4px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 200; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>한글노트<span class="ja">ハングルノート</span></h1>
+  <nav id="nav">
+    <button data-view="library" class="active">📚 目次</button>
+    <button data-view="notebook">📖 ノート</button>
+    <button data-view="quiz">🎯 単語テスト</button>
+  </nav>
+  <div class="header-actions">
+    <button id="syncBtn" title="クラウド同期設定">☁️ <span id="syncStatus">未接続</span></button>
+    <button id="newSongBtn" class="btn-primary">+ 新規ノート</button>
+    <button id="exportBtn">📤 書き出し</button>
+    <button id="importBtn">📥 読み込み</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+  </div>
+</header>
+
+<main>
+  <!-- ============= LIBRARY ============= -->
+  <section id="view-library">
+    <div class="library-head">
+      <h2>目次 — 学習中の曲</h2>
+      <div class="stat" id="libraryStat"></div>
+    </div>
+    <div class="toc-grid" id="tocGrid"></div>
+  </section>
+
+  <!-- ============= NOTEBOOK ============= -->
+  <section id="view-notebook" class="hidden">
+    <div class="notebook-bar">
+      <div class="left">
+        <button class="btn" id="prevSong" title="前の曲">◀</button>
+        <div>
+          <input class="song-title-edit" id="songTitleEdit" placeholder="曲名">
+          <br>
+          <input class="song-artist-edit" id="songArtistEdit" placeholder="アーティスト">
+        </div>
+        <button class="btn" id="nextSong" title="次の曲">▶</button>
+      </div>
+      <div class="right">
+        <span id="dayInfo" class="stat"></span>
+        <button class="btn btn-sm" id="dayInc">+1日</button>
+        <button class="btn btn-sm btn-danger" id="deleteSong">🗑 削除</button>
+      </div>
+    </div>
+
+    <div class="notebook-spread">
+      <div class="page page-left" id="pageLeft">
+        <h2>📝 歌詞</h2>
+        <div class="member-bar" id="memberBar"></div>
+        <table class="data" id="lyricsTable">
+          <thead>
+            <tr>
+              <th style="width:60px;">パート</th>
+              <th style="width:90px;">担当</th>
+              <th>ハングル</th>
+              <th style="width:22%;">カナ読み</th>
+              <th style="width:25%;">日本語訳</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="lyricsBody"></tbody>
+        </table>
+        <button class="btn btn-ghost btn-sm" id="addLyric" style="margin-top:8px;">+ 行を追加</button>
+        <button class="btn btn-ghost btn-sm" id="bulkPaste" style="margin-top:8px;">📋 まとめてペースト</button>
+      </div>
+
+      <div class="page page-right" id="pageRight">
+        <h2>📚 学習メモ</h2>
+
+        <h3>① 新出単語</h3>
+        <table class="data" id="vocabTable">
+          <thead>
+            <tr>
+              <th style="width:25%;">ハングル</th>
+              <th style="width:20%;">カナ読み</th>
+              <th style="width:15%;">品詞</th>
+              <th>意味</th>
+              <th style="width:60px;">習得</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="vocabBody"></tbody>
+        </table>
+        <button class="btn btn-ghost btn-sm" id="addVocab" style="margin-top:8px;">+ 単語を追加</button>
+        <button class="btn btn-ghost btn-sm" id="bulkVocab" style="margin-top:8px;">📋 単語まとめてペースト</button>
+
+        <h3>② 文法ポイント</h3>
+        <div id="grammarList"></div>
+        <button class="btn btn-ghost btn-sm" id="addGrammar">+ 文法を追加</button>
+
+        <h3>③ 暗記フレーズ</h3>
+        <div id="phrasesList"></div>
+        <button class="btn btn-ghost btn-sm" id="addPhrase">+ フレーズを追加</button>
+
+        <h3>④ 今日のセルフチェック</h3>
+        <div class="check-row" id="checkRow"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============= QUIZ ============= -->
+  <section id="view-quiz" class="hidden">
+    <div id="quizSetup" class="quiz-setup">
+      <h2>🎯 単語テスト</h2>
+      <label>対象の曲</label>
+      <select id="quizSong"></select>
+      <div class="row">
+        <div>
+          <label>モード</label>
+          <select id="quizMode">
+            <option value="ko-ja">韓 → 日 入力</option>
+            <option value="ja-ko">日 → 韓 入力</option>
+            <option value="choice">4択（韓→日）</option>
+          </select>
+        </div>
+        <div>
+          <label>範囲</label>
+          <select id="quizFilter">
+            <option value="all">全単語</option>
+            <option value="unmastered">未習得のみ</option>
+          </select>
+        </div>
+      </div>
+      <label>出題数（最大）</label>
+      <input type="number" id="quizCount" value="10" min="1" max="50">
+      <button class="btn btn-primary start-btn" id="startQuiz">テスト開始</button>
+    </div>
+
+    <div id="quizStage" class="quiz-stage hidden">
+      <div class="quiz-progress">
+        <span id="quizProg"></span>
+        <span id="quizScore"></span>
+      </div>
+      <div class="quiz-card" id="quizCard"></div>
+    </div>
+
+    <div id="quizResult" class="quiz-result hidden"></div>
+  </section>
+</main>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast"></div>
+
+<script type="module">
+// =================== FIREBASE ===================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD1eGgz3QIOVKR0x0QZgO_uSlY9yNx6O_A",
+  authDomain: "korean-note.firebaseapp.com",
+  projectId: "korean-note",
+  storageBucket: "korean-note.firebasestorage.app",
+  messagingSenderId: "605682744732",
+  appId: "1:605682744732:web:d874bb4d8b65da72059c59",
+  measurementId: "G-GCD8JK6MRR"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
+
+let authReady = false;
+let snapshotUnsub = null;
+let cloudWriteTimer = null;
+let suppressCloudWrite = false;
+const SYNC_CODE_KEY = 'hangul-note:sync-code';
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    authReady = true;
+    const code = localStorage.getItem(SYNC_CODE_KEY);
+    if (code) {
+      subscribeCloud(code);
+      updateSyncBadge('connected', code);
+    } else {
+      updateSyncBadge('signed-in', null);
+    }
+  }
+});
+signInAnonymously(auth).catch(err => { console.error('anon auth failed', err); updateSyncBadge('error', null); });
+
+function updateSyncBadge(status, code) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const map = {
+    'connected': `${code ? code.slice(0,8) : ''}…`,
+    'signed-in': '同期未設定',
+    'syncing': '同期中…',
+    'synced': '同期済み',
+    'error': '⚠️エラー',
+    'offline': 'オフライン',
+  };
+  el.textContent = map[status] || status;
+}
+
+async function writeCloudNow() {
+  const code = localStorage.getItem(SYNC_CODE_KEY);
+  if (!code || !authReady) return;
+  try {
+    updateSyncBadge('syncing', code);
+    state.updatedAt = Date.now();
+    await setDoc(doc(db, 'notes', code), { data: state, updatedAt: state.updatedAt });
+    updateSyncBadge('synced', code);
+    setTimeout(() => updateSyncBadge('connected', code), 1500);
+  } catch (e) {
+    console.error('cloud write failed', e);
+    updateSyncBadge('error', code);
+  }
+}
+function scheduleCloudWrite() {
+  if (suppressCloudWrite) return;
+  if (!localStorage.getItem(SYNC_CODE_KEY) || !authReady) return;
+  clearTimeout(cloudWriteTimer);
+  cloudWriteTimer = setTimeout(writeCloudNow, 1200);
+}
+
+function subscribeCloud(code) {
+  if (snapshotUnsub) snapshotUnsub();
+  if (!code) return;
+  snapshotUnsub = onSnapshot(doc(db, 'notes', code), (snap) => {
+    if (!snap.exists()) return;
+    const remote = snap.data();
+    if (!remote?.data) return;
+    const localUpd = state.updatedAt || 0;
+    const remoteUpd = remote.updatedAt || 0;
+    if (remoteUpd > localUpd) {
+      suppressCloudWrite = true;
+      state = migrateState(remote.data);
+      state.updatedAt = remoteUpd;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      rerenderCurrentView();
+      suppressCloudWrite = false;
+      toast('☁️ クラウドから更新を受信');
+    }
+  }, (err) => { console.error('snapshot error', err); updateSyncBadge('error', code); });
+}
+
+async function connectExistingCode(code) {
+  if (!code || !authReady) { alert('まだ認証が完了していません。少し待って再試行してください。'); return; }
+  try {
+    updateSyncBadge('syncing', code);
+    const snap = await getDoc(doc(db, 'notes', code));
+    if (snap.exists() && snap.data()?.data) {
+      if (!confirm('クラウドの既存データをこの端末に取り込みます。\nこの端末の現在のデータは上書きされます。続けますか？')) {
+        updateSyncBadge(localStorage.getItem(SYNC_CODE_KEY) ? 'connected' : 'signed-in', localStorage.getItem(SYNC_CODE_KEY));
+        return;
+      }
+      suppressCloudWrite = true;
+      state = migrateState(snap.data().data);
+      state.updatedAt = snap.data().updatedAt || Date.now();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      suppressCloudWrite = false;
+    }
+    localStorage.setItem(SYNC_CODE_KEY, code);
+    subscribeCloud(code);
+    updateSyncBadge('connected', code);
+    rerenderCurrentView();
+    toast('☁️ 接続しました');
+  } catch (e) {
+    console.error(e); alert('接続失敗: ' + e.message); updateSyncBadge('error', code);
+  }
+}
+
+async function generateNewCode() {
+  if (!authReady) { alert('まだ認証が完了していません。少し待って再試行してください。'); return; }
+  const code = (crypto?.randomUUID?.() || uid() + uid() + uid()).replace(/-/g, '').slice(0, 24);
+  localStorage.setItem(SYNC_CODE_KEY, code);
+  await writeCloudNow();
+  subscribeCloud(code);
+  updateSyncBadge('connected', code);
+  toast('☁️ 同期コード生成完了');
+  return code;
+}
+
+function disconnectCloud() {
+  if (snapshotUnsub) { snapshotUnsub(); snapshotUnsub = null; }
+  localStorage.removeItem(SYNC_CODE_KEY);
+  updateSyncBadge('signed-in', null);
+  toast('☁️ 切断しました');
+}
+
+let currentView = 'library';
+function rerenderCurrentView() {
+  if (currentView === 'library') renderLibrary();
+  else if (currentView === 'notebook') renderNotebook();
+  else if (currentView === 'quiz') renderQuizSetup();
+}
+
+// =================== STATE ===================
+const STORAGE_KEY = 'hangul-note:v1';
+const DEFAULT_DATA = {
+  songs: [
+    {
+      id: 'seed-motto',
+      title: 'Motto',
+      artist: 'ITZY',
+      startDate: todayStr(),
+      day: 1,
+      members: [
+        { id: 'm-yeji', name: 'Yeji', color: '#EAEAEA' },
+        { id: 'm-lia', name: 'Lia', color: '#FF8FB1' },
+        { id: 'm-ryujin', name: 'Ryujin', color: '#E54B4B' },
+        { id: 'm-chaeryeong', name: 'Chaeryeong', color: '#5DAEDE' },
+        { id: 'm-yuna', name: 'Yuna', color: '#F5C518' },
+      ],
+      lyrics: [
+        { id: uid(), section: 'サビ', memberId: '', ko: '', kana: '', ja: '' },
+        { id: uid(), section: 'Aメロ', memberId: '', ko: '', kana: '', ja: '' },
+      ],
+      vocab: [
+        { id: uid(), ko: '나', kana: 'ナ', pos: '代名詞', ja: '私', mastered: false, correct: 0, wrong: 0 },
+        { id: uid(), ko: '너', kana: 'ノ', pos: '代名詞', ja: 'あなた／君', mastered: false, correct: 0, wrong: 0 },
+        { id: uid(), ko: '믿다', kana: 'ミッタ', pos: '動詞', ja: '信じる', mastered: false, correct: 0, wrong: 0 },
+        { id: uid(), ko: '선택하다', kana: 'ソンテッカダ', pos: '動詞', ja: '選ぶ', mastered: false, correct: 0, wrong: 0 },
+        { id: uid(), ko: '함께', kana: 'ハムケ', pos: '副詞', ja: '一緒に', mastered: false, correct: 0, wrong: 0 },
+        { id: uid(), ko: '가다', kana: 'カダ', pos: '動詞', ja: '行く', mastered: false, correct: 0, wrong: 0 },
+        { id: uid(), ko: '모토', kana: 'モト', pos: '名詞', ja: 'モットー', mastered: false, correct: 0, wrong: 0 },
+      ],
+      grammar: [
+        { id: uid(), pattern: '-아/어요', meaning: '丁寧形（〜です/ます）', example: '', myExample: '' },
+      ],
+      phrases: [],
+      checks: {},
+      createdAt: Date.now(),
+    }
+  ],
+  currentSongId: 'seed-motto',
+};
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+
+let state = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return migrateState(structuredClone(DEFAULT_DATA));
+    const parsed = JSON.parse(raw);
+    if (!parsed.songs || !Array.isArray(parsed.songs)) return migrateState(structuredClone(DEFAULT_DATA));
+    return migrateState(parsed);
+  } catch(e) {
+    return migrateState(structuredClone(DEFAULT_DATA));
+  }
+}
+
+function migrateState(parsed) {
+  if (!parsed.songs || !Array.isArray(parsed.songs)) return structuredClone(DEFAULT_DATA);
+  // Migration: ensure members array + memberId field
+  parsed.songs.forEach(s => {
+      if (!Array.isArray(s.members)) s.members = [];
+      if (s.id === 'seed-motto' && s.members.length === 0) {
+        s.members = [
+          { id: 'm-yeji', name: 'Yeji', color: '#EAEAEA' },
+          { id: 'm-lia', name: 'Lia', color: '#FF8FB1' },
+          { id: 'm-ryujin', name: 'Ryujin', color: '#E54B4B' },
+          { id: 'm-chaeryeong', name: 'Chaeryeong', color: '#5DAEDE' },
+          { id: 'm-yuna', name: 'Yuna', color: '#F5C518' },
+        ];
+      }
+      (s.lyrics || []).forEach(r => { if (r.memberId === undefined) r.memberId = ''; });
+      // Seed Motto vocab + grammar (idempotent — only adds if not already present)
+      if (s.id === 'seed-motto') {
+        const mottoVocab = [
+          ['두','トゥ','数詞','二つの'], ['눈','ヌン','名詞','目'],
+          ['감다','カムタ','動詞','(目を)閉じる'], ['늘','ヌル','副詞','いつも'],
+          ['어둠','オドゥム','名詞','暗闇'], ['헤매다','ヘメダ','動詞','さまよう'],
+          ['익숙하다','イクスカダ','形容詞','慣れている'], ['운명','ウンミョン','名詞','運命'],
+          ['달라지다','タルラジダ','動詞','変わる'], ['기다리다','キダリダ','動詞','待つ'],
+          ['닿다','タッタ','動詞','届く・触れる'], ['꿈','クム','名詞','夢'],
+          ['이끌다','イックルダ','動詞','導く'], ['세상','セサン','名詞','世の中'],
+          ['끝','クッ','名詞','終わり・果て'], ['환히','ファニ','副詞','明るく'],
+          ['비추다','ピチュダ','動詞','照らす'], ['결말','キョルマル','名詞','結末'],
+          ['향하다','ヒャンハダ','動詞','向かう'], ['멈추다','モムチュダ','動詞','止まる'],
+          ['닮다','タムタ','動詞','似る'], ['눈부시다','ヌンブシダ','形容詞','まぶしい'],
+          ['번지다','ポンジダ','動詞','広がる'], ['망설이다','マンソリダ','動詞','ためらう'],
+          ['밤','パム','名詞','夜'], ['빛나다','ピンナダ','動詞','輝く'],
+          ['뜨겁다','ットゥゴプタ','形容詞','熱い'], ['숨','スム','名詞','息'],
+          ['던지다','トンジダ','動詞','投げる'], ['후회','フフェ','名詞','後悔'],
+          ['답','タプ','名詞','答え'], ['오직','オジク','副詞','ただ・もっぱら'],
+          ['순간','スンガン','名詞','瞬間'], ['채우다','チェウダ','動詞','満たす'],
+          ['떨림','ットルリム','名詞','震え'],
+        ];
+        const existingKo = new Set((s.vocab || []).map(v => v.ko));
+        mottoVocab.forEach(([ko, kana, pos, ja]) => {
+          if (!existingKo.has(ko)) {
+            s.vocab.push({ id: uid(), ko, kana, pos, ja, mastered: false, correct: 0, wrong: 0 });
+          }
+        });
+        const mottoGrammar = [
+          ['-ㄹ/을 때', '〜する時', '時間や状況を表す', ''],
+          ['-아/어 줘', '〜してくれ', 'お願い・依頼', ''],
+          ['-지 않다', '〜しない', '長い否定形', ''],
+          ['처럼', '〜のように', '比喩・例え', ''],
+          ['-아/어도', '〜しても', '譲歩', ''],
+          ['-게', '〜のように／〜く', '副詞化／結果', ''],
+        ];
+        const existingPattern = new Set((s.grammar || []).map(g => g.pattern));
+        mottoGrammar.forEach(([pattern, meaning, example, myExample]) => {
+          if (!existingPattern.has(pattern)) {
+            s.grammar.push({ id: uid(), pattern, meaning, example, myExample });
+          }
+        });
+      }
+  });
+  return parsed;
+}
+function save() {
+  state.updatedAt = Date.now();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  scheduleCloudWrite();
+}
+
+function currentSong() {
+  return state.songs.find(s => s.id === state.currentSongId) || state.songs[0];
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// =================== VIEWS ===================
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  ['library','notebook','quiz'].forEach(v => {
+    document.getElementById('view-'+v).classList.toggle('hidden', v !== view);
+  });
+  if (view === 'library') renderLibrary();
+  if (view === 'notebook') renderNotebook();
+  if (view === 'quiz') renderQuizSetup();
+}
+
+document.getElementById('nav').addEventListener('click', e => {
+  if (e.target.tagName === 'BUTTON') switchView(e.target.dataset.view);
+});
+
+// =================== LIBRARY ===================
+function renderLibrary() {
+  const grid = document.getElementById('tocGrid');
+  grid.innerHTML = '';
+  state.songs.forEach(s => {
+    const total = s.vocab.length;
+    const mastered = s.vocab.filter(v => v.mastered).length;
+    const pct = total ? Math.round(mastered / total * 100) : 0;
+    const card = document.createElement('div');
+    card.className = 'toc-card';
+    card.innerHTML = `
+      <div class="card-actions">
+        <button class="btn btn-sm btn-danger" data-act="delete">削除</button>
+      </div>
+      <div class="artist">${escape(s.artist || '—')}</div>
+      <div class="title">${escape(s.title || '無題')}</div>
+      <div class="meta">
+        <span>📅 ${escape(s.startDate)}</span>
+        <span>Day ${s.day || 1}/7</span>
+        <span>📖 ${s.lyrics.length}行</span>
+        <span>📚 ${total}単語</span>
+      </div>
+      <div class="progress-bar"><div style="width:${pct}%"></div></div>
+      <div class="meta"><span>習得 ${mastered}/${total} (${pct}%)</span></div>
+    `;
+    card.addEventListener('click', e => {
+      if (e.target.dataset.act === 'delete') {
+        if (confirm(`「${s.title}」を削除しますか？`)) {
+          state.songs = state.songs.filter(x => x.id !== s.id);
+          if (state.currentSongId === s.id) state.currentSongId = state.songs[0]?.id || null;
+          save(); renderLibrary();
+        }
+        return;
+      }
+      state.currentSongId = s.id;
+      save();
+      switchView('notebook');
+    });
+    grid.appendChild(card);
+  });
+  // add card
+  const addCard = document.createElement('div');
+  addCard.className = 'toc-card empty';
+  addCard.textContent = '+ 新規ノート';
+  addCard.addEventListener('click', newSong);
+  grid.appendChild(addCard);
+
+  document.getElementById('libraryStat').textContent =
+    `${state.songs.length}曲 / 合計 ${state.songs.reduce((a,s)=>a+s.vocab.length,0)}単語`;
+}
+
+function newSong() {
+  showModal('新規ノート', [
+    { name: 'title', label: '曲名', value: '' },
+    { name: 'artist', label: 'アーティスト', value: '' },
+  ], (vals) => {
+    if (!vals.title.trim()) return;
+    const s = {
+      id: uid(),
+      title: vals.title.trim(),
+      artist: vals.artist.trim(),
+      startDate: todayStr(),
+      day: 1,
+      members: [],
+      lyrics: [{ id: uid(), section: '', memberId: '', ko: '', kana: '', ja: '' }],
+      vocab: [],
+      grammar: [],
+      phrases: [],
+      checks: {},
+      createdAt: Date.now(),
+    };
+    state.songs.push(s);
+    state.currentSongId = s.id;
+    save();
+    switchView('notebook');
+  });
+}
+
+// =================== NOTEBOOK ===================
+function renderNotebook() {
+  const s = currentSong();
+  if (!s) {
+    document.getElementById('view-notebook').innerHTML = '<div class="empty-state">ノートがありません。<br>＋新規ノートから始めましょう。</div>';
+    return;
+  }
+
+  document.getElementById('songTitleEdit').value = s.title;
+  document.getElementById('songArtistEdit').value = s.artist;
+  document.getElementById('dayInfo').textContent = `${s.startDate} ／ Day ${s.day || 1}/7`;
+
+  renderLyrics(s);
+  renderVocab(s);
+  renderGrammar(s);
+  renderPhrases(s);
+  renderCheck(s);
+}
+
+function getMember(s, memberId) {
+  return (s.members || []).find(m => m.id === memberId) || null;
+}
+function memberColorFor(s, memberId) {
+  const m = getMember(s, memberId);
+  return m ? m.color : '';
+}
+function renderMemberBar(s) {
+  const bar = document.getElementById('memberBar');
+  if (!bar) return;
+  const members = s.members || [];
+  const chips = members.map(m => `
+    <span class="member-chip" data-edit="${m.id}" title="クリックで編集">
+      <span class="dot" style="background:${escape(m.color)}"></span>${escape(m.name)}
+    </span>
+  `).join('');
+  bar.innerHTML = `<span class="label">担当:</span>${chips}
+    <span class="member-chip edit-chip" data-add="1">+ 追加</span>`;
+  bar.querySelectorAll('[data-edit]').forEach(el => {
+    el.addEventListener('click', () => editMember(s, el.dataset.edit));
+  });
+  bar.querySelector('[data-add]')?.addEventListener('click', () => editMember(s, null));
+}
+function editMember(s, memberId) {
+  if (!s.members) s.members = [];
+  const existing = memberId ? s.members.find(m => m.id === memberId) : null;
+  showModal(existing ? 'メンバー編集' : 'メンバー追加', [
+    { name: 'name', label: '名前', value: existing?.name || '' },
+    { name: 'color', label: 'カラー (例: #E54B4B)', value: existing?.color || '#888888' },
+  ], (vals, extra) => {
+    if (extra === 'delete' && existing) {
+      s.members = s.members.filter(m => m.id !== memberId);
+      s.lyrics.forEach(r => { if (r.memberId === memberId) r.memberId = ''; });
+    } else {
+      if (!vals.name.trim()) return;
+      if (existing) { existing.name = vals.name.trim(); existing.color = vals.color.trim() || '#888888'; }
+      else { s.members.push({ id: uid(), name: vals.name.trim(), color: vals.color.trim() || '#888888' }); }
+    }
+    save(); renderMemberBar(s); renderLyrics(s);
+  }, existing ? { showDelete: true } : null);
+}
+function renderLyrics(s) {
+  renderMemberBar(s);
+  const body = document.getElementById('lyricsBody');
+  body.innerHTML = '';
+  const members = s.members || [];
+  s.lyrics.forEach((row, i) => {
+    const color = memberColorFor(s, row.memberId);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input value="${escape(row.section||'')}" data-field="section" placeholder=""></td>
+      <td>
+        <select class="member-select" data-field="memberId">
+          <option value="">—</option>
+          ${members.map(m => `<option value="${m.id}" ${row.memberId===m.id?'selected':''}>${escape(m.name)}</option>`).join('')}
+        </select>
+      </td>
+      <td><span class="lyric-ko-wrap" style="${color?`color:${escape(color)};background:${escape(color)}22;`:''}"><textarea class="ko" data-field="ko" rows="1" placeholder="가사">${escape(row.ko||'')}</textarea></span></td>
+      <td><textarea data-field="kana" rows="1" placeholder="カナ">${escape(row.kana||'')}</textarea></td>
+      <td><textarea data-field="ja" rows="1" placeholder="訳">${escape(row.ja||'')}</textarea></td>
+      <td class="row-actions">
+        <button data-act="up" title="上へ">↑</button>
+        <button data-act="down" title="下へ">↓</button>
+        <button data-act="del" title="削除">✕</button>
+      </td>
+    `;
+    tr.querySelectorAll('input, textarea, select').forEach(el => {
+      const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+      el.addEventListener(evt, e => {
+        row[e.target.dataset.field] = e.target.value;
+        save();
+        if (e.target.dataset.field === 'memberId') renderLyrics(s);
+      });
+    });
+    tr.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.act === 'del') {
+          s.lyrics.splice(i, 1);
+        } else if (btn.dataset.act === 'up' && i > 0) {
+          [s.lyrics[i-1], s.lyrics[i]] = [s.lyrics[i], s.lyrics[i-1]];
+        } else if (btn.dataset.act === 'down' && i < s.lyrics.length - 1) {
+          [s.lyrics[i+1], s.lyrics[i]] = [s.lyrics[i], s.lyrics[i+1]];
+        }
+        save(); renderLyrics(s);
+      });
+    });
+    body.appendChild(tr);
+  });
+}
+
+function renderVocab(s) {
+  const body = document.getElementById('vocabBody');
+  body.innerHTML = '';
+  s.vocab.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input class="ko" value="${escape(row.ko||'')}" data-field="ko" placeholder="가사"></td>
+      <td><input value="${escape(row.kana||'')}" data-field="kana" placeholder="カナ"></td>
+      <td><input value="${escape(row.pos||'')}" data-field="pos" placeholder="品詞"></td>
+      <td><input value="${escape(row.ja||'')}" data-field="ja" placeholder="意味"></td>
+      <td style="text-align:center;">
+        <label style="cursor:pointer;display:inline-block;">
+          <input type="checkbox" data-field="mastered" ${row.mastered?'checked':''}>
+        </label>
+      </td>
+      <td class="row-actions">
+        <button data-act="del" title="削除">✕</button>
+      </td>
+    `;
+    tr.querySelectorAll('input').forEach(el => {
+      el.addEventListener('input', e => {
+        const f = e.target.dataset.field;
+        if (f === 'mastered') row[f] = e.target.checked;
+        else row[f] = e.target.value;
+        save();
+      });
+    });
+    tr.querySelector('[data-act=del]').addEventListener('click', () => {
+      s.vocab.splice(i, 1); save(); renderVocab(s); renderLibrary();
+    });
+    body.appendChild(tr);
+  });
+}
+
+function renderGrammar(s) {
+  const list = document.getElementById('grammarList');
+  list.innerHTML = '';
+  if (s.grammar.length === 0) {
+    list.innerHTML = '<div class="empty-state">文法ポイントを追加</div>';
+    return;
+  }
+  s.grammar.forEach((g, i) => {
+    const card = document.createElement('div');
+    card.className = 'grammar-card';
+    card.innerHTML = `
+      <button class="delete-x">✕</button>
+      <input class="pattern" value="${escape(g.pattern||'')}" placeholder="パターン (例: -아/어요)" data-field="pattern">
+      <input class="meaning" value="${escape(g.meaning||'')}" placeholder="意味" data-field="meaning">
+      <textarea class="example" rows="1" placeholder="曲からの例" data-field="example">${escape(g.example||'')}</textarea>
+      <textarea class="example my" rows="1" placeholder="自作例文" data-field="myExample">${escape(g.myExample||'')}</textarea>
+    `;
+    card.querySelectorAll('input, textarea').forEach(el => {
+      el.addEventListener('input', e => { g[e.target.dataset.field] = e.target.value; save(); });
+    });
+    card.querySelector('.delete-x').addEventListener('click', () => {
+      s.grammar.splice(i, 1); save(); renderGrammar(s);
+    });
+    list.appendChild(card);
+  });
+}
+
+function renderPhrases(s) {
+  const list = document.getElementById('phrasesList');
+  list.innerHTML = '';
+  if (s.phrases.length === 0) {
+    list.innerHTML = '<div class="empty-state">暗記したいフレーズを追加</div>';
+    return;
+  }
+  s.phrases.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'phrase-card';
+    card.innerHTML = `
+      <button class="delete-x">✕</button>
+      <input class="pattern" value="${escape(p.text||'')}" placeholder="フレーズ" data-field="text">
+      <input class="meaning" value="${escape(p.meaning||'')}" placeholder="意味" data-field="meaning">
+    `;
+    card.querySelectorAll('input').forEach(el => {
+      el.addEventListener('input', e => { p[e.target.dataset.field] = e.target.value; save(); });
+    });
+    card.querySelector('.delete-x').addEventListener('click', () => {
+      s.phrases.splice(i, 1); save(); renderPhrases(s);
+    });
+    list.appendChild(card);
+  });
+}
+
+function renderCheck(s) {
+  const today = todayStr();
+  if (!s.checks[today]) s.checks[today] = { oudoku: false, kakitori: false, tango: false, shadowing: false, mood: '😊', minutes: 0 };
+  const c = s.checks[today];
+  const row = document.getElementById('checkRow');
+  row.innerHTML = `
+    <label><input type="checkbox" data-c="oudoku" ${c.oudoku?'checked':''}> 音読</label>
+    <label><input type="checkbox" data-c="kakitori" ${c.kakitori?'checked':''}> 書取</label>
+    <label><input type="checkbox" data-c="tango" ${c.tango?'checked':''}> 単語テスト</label>
+    <label><input type="checkbox" data-c="shadowing" ${c.shadowing?'checked':''}> シャドーイング</label>
+    <label>気分
+      <select data-c="mood">
+        <option ${c.mood==='😊'?'selected':''}>😊</option>
+        <option ${c.mood==='😐'?'selected':''}>😐</option>
+        <option ${c.mood==='😩'?'selected':''}>😩</option>
+      </select>
+    </label>
+    <label>時間 <input type="number" value="${c.minutes}" min="0" data-c="minutes" style="width:60px;">分</label>
+    <span style="color:var(--muted);font-size:12px;margin-left:auto;">${today}</span>
+  `;
+  row.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('change', e => {
+      const k = e.target.dataset.c;
+      if (e.target.type === 'checkbox') c[k] = e.target.checked;
+      else if (e.target.type === 'number') c[k] = Number(e.target.value);
+      else c[k] = e.target.value;
+      save();
+    });
+  });
+}
+
+// Notebook actions
+document.getElementById('addLyric').addEventListener('click', () => {
+  const s = currentSong();
+  const last = s.lyrics[s.lyrics.length - 1];
+  s.lyrics.push({ id: uid(), section: last?.section || '', memberId: '', ko: '', kana: '', ja: '' });
+  save(); renderLyrics(s);
+});
+document.getElementById('bulkPaste').addEventListener('click', () => openBulkPaste());
+
+function openBulkPaste() {
+  const s = currentSong();
+  const members = s.members || [];
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:600px;">
+        <h3>📋 まとめてペースト</h3>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 6px;">1行=1ノート行。空行は飛ばします。担当はまとめて1人にも、行ごとに <code>[ryujin]</code> プレフィックスで指定もできます。</p>
+        <label>セクション（任意）</label>
+        <input id="bpSection" placeholder="サビ / Aメロ / Bメロ など">
+        <label>デフォルト担当</label>
+        <select id="bpMember" class="member-select" style="width:100%;padding:8px;font-size:14px;">
+          <option value="">— なし —</option>
+          ${members.map(m => `<option value="${m.id}">${escape(m.name)}</option>`).join('')}
+        </select>
+        <label>歌詞（ハングル）</label>
+        <textarea id="bpKo" rows="10" style="width:100%;padding:8px;border:1px solid var(--paper-edge);border-radius:4px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:14px;background:white;" placeholder="두 눈을 감아&#10;[ryujin] 운명처럼 fallin'&#10;..."></textarea>
+        <label>カナ読み（任意・1行ずつ対応）</label>
+        <textarea id="bpKana" rows="4" style="width:100%;padding:8px;border:1px solid var(--paper-edge);border-radius:4px;font-family:inherit;font-size:13px;background:white;"></textarea>
+        <label>日本語訳（任意・1行ずつ対応）</label>
+        <textarea id="bpJa" rows="4" style="width:100%;padding:8px;border:1px solid var(--paper-edge);border-radius:4px;font-family:inherit;font-size:13px;background:white;"></textarea>
+        <div class="modal-actions">
+          <button class="btn" id="bpCancel">キャンセル</button>
+          <button class="btn btn-primary" id="bpOk">追加</button>
+        </div>
+      </div>
+    </div>
+  `;
+  root.querySelector('#bpCancel').addEventListener('click', () => root.innerHTML = '');
+  root.querySelector('#bpOk').addEventListener('click', () => {
+    const section = root.querySelector('#bpSection').value.trim();
+    const defMember = root.querySelector('#bpMember').value;
+    const koLines = root.querySelector('#bpKo').value.split('\n');
+    const kanaLines = root.querySelector('#bpKana').value.split('\n');
+    const jaLines = root.querySelector('#bpJa').value.split('\n');
+    let added = 0;
+    koLines.forEach((rawLine, i) => {
+      const line = rawLine.trim();
+      if (!line) return;
+      // Detect [member] prefix
+      let memberId = defMember;
+      let ko = line;
+      const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (m) {
+        const hit = members.find(mm => mm.name.toLowerCase() === m[1].trim().toLowerCase());
+        if (hit) { memberId = hit.id; ko = m[2]; }
+      }
+      s.lyrics.push({
+        id: uid(),
+        section,
+        memberId,
+        ko,
+        kana: (kanaLines[i] || '').trim(),
+        ja: (jaLines[i] || '').trim(),
+      });
+      added++;
+    });
+    save(); renderLyrics(s); root.innerHTML = '';
+    toast(`${added}行追加しました`);
+  });
+}
+document.getElementById('addVocab').addEventListener('click', () => {
+  const s = currentSong();
+  s.vocab.push({ id: uid(), ko: '', kana: '', pos: '', ja: '', mastered: false, correct: 0, wrong: 0 });
+  save(); renderVocab(s);
+});
+document.getElementById('bulkVocab').addEventListener('click', () => openBulkVocab());
+
+function openBulkVocab() {
+  const s = currentSong();
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:600px;">
+        <h3>📋 単語まとめてペースト</h3>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 6px;">1行=1単語。タブ・カンマ・スペース2個以上で区切り。順番: <code>ハングル / カナ / 品詞 / 意味</code></p>
+        <textarea id="bvText" rows="14" style="width:100%;padding:8px;border:1px solid var(--paper-edge);border-radius:4px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:13px;background:white;" placeholder="감다&#9;カムタ&#9;動詞&#9;閉じる&#10;운명&#9;ウンミョン&#9;名詞&#9;運命"></textarea>
+        <div class="modal-actions">
+          <button class="btn" id="bvCancel">キャンセル</button>
+          <button class="btn btn-primary" id="bvOk">追加</button>
+        </div>
+      </div>
+    </div>
+  `;
+  root.querySelector('#bvCancel').addEventListener('click', () => root.innerHTML = '');
+  root.querySelector('#bvOk').addEventListener('click', () => {
+    const lines = root.querySelector('#bvText').value.split('\n');
+    let added = 0;
+    lines.forEach(rawLine => {
+      const line = rawLine.trim();
+      if (!line) return;
+      const parts = line.split(/\t|,| {2,}/).map(x => x.trim()).filter((_, i, a) => true);
+      if (!parts[0]) return;
+      s.vocab.push({
+        id: uid(),
+        ko: parts[0] || '',
+        kana: parts[1] || '',
+        pos: parts[2] || '',
+        ja: parts[3] || '',
+        mastered: false, correct: 0, wrong: 0,
+      });
+      added++;
+    });
+    save(); renderVocab(s); renderLibrary(); root.innerHTML = '';
+    toast(`${added}単語追加しました`);
+  });
+}
+document.getElementById('addGrammar').addEventListener('click', () => {
+  const s = currentSong();
+  s.grammar.push({ id: uid(), pattern: '', meaning: '', example: '', myExample: '' });
+  save(); renderGrammar(s);
+});
+document.getElementById('addPhrase').addEventListener('click', () => {
+  const s = currentSong();
+  s.phrases.push({ id: uid(), text: '', meaning: '' });
+  save(); renderPhrases(s);
+});
+document.getElementById('songTitleEdit').addEventListener('input', e => { currentSong().title = e.target.value; save(); });
+document.getElementById('songArtistEdit').addEventListener('input', e => { currentSong().artist = e.target.value; save(); });
+document.getElementById('dayInc').addEventListener('click', () => { currentSong().day = (currentSong().day || 1) + 1; save(); renderNotebook(); });
+document.getElementById('deleteSong').addEventListener('click', () => {
+  const s = currentSong();
+  if (confirm(`「${s.title}」を削除しますか？`)) {
+    state.songs = state.songs.filter(x => x.id !== s.id);
+    state.currentSongId = state.songs[0]?.id || null;
+    save();
+    if (state.songs.length === 0) switchView('library');
+    else renderNotebook();
+  }
+});
+document.getElementById('prevSong').addEventListener('click', () => navigateSong(-1));
+document.getElementById('nextSong').addEventListener('click', () => navigateSong(1));
+
+function navigateSong(dir) {
+  if (state.songs.length < 2) return;
+  const idx = state.songs.findIndex(s => s.id === state.currentSongId);
+  const next = (idx + dir + state.songs.length) % state.songs.length;
+  const pageL = document.getElementById('pageLeft');
+  const pageR = document.getElementById('pageRight');
+  const dirClass = dir > 0 ? 'flip-out-right' : 'flip-out-left';
+  pageL.classList.add(dirClass); pageR.classList.add(dirClass);
+  setTimeout(() => {
+    state.currentSongId = state.songs[next].id; save(); renderNotebook();
+    pageL.classList.remove(dirClass); pageR.classList.remove(dirClass);
+  }, 200);
+}
+
+// =================== QUIZ ===================
+function renderQuizSetup() {
+  document.getElementById('quizSetup').classList.remove('hidden');
+  document.getElementById('quizStage').classList.add('hidden');
+  document.getElementById('quizResult').classList.add('hidden');
+  const sel = document.getElementById('quizSong');
+  sel.innerHTML = '<option value="__all__">全曲</option>' + state.songs.map(s => `<option value="${s.id}">${escape(s.title)} (${escape(s.artist)})</option>`).join('');
+  if (state.currentSongId) sel.value = state.currentSongId;
+}
+
+document.getElementById('startQuiz').addEventListener('click', startQuiz);
+
+let quiz = null;
+function startQuiz() {
+  const songId = document.getElementById('quizSong').value;
+  const mode = document.getElementById('quizMode').value;
+  const filter = document.getElementById('quizFilter').value;
+  const count = Math.max(1, parseInt(document.getElementById('quizCount').value) || 10);
+
+  let pool = [];
+  if (songId === '__all__') state.songs.forEach(s => pool.push(...s.vocab.map(v => ({...v, _songId: s.id}))));
+  else { const s = state.songs.find(x => x.id === songId); if (s) pool = s.vocab.map(v => ({...v, _songId: s.id})); }
+
+  if (filter === 'unmastered') pool = pool.filter(v => !v.mastered);
+  pool = pool.filter(v => v.ko && v.ja);
+
+  if (pool.length === 0) { toast('出題できる単語がありません'); return; }
+  shuffle(pool);
+  const questions = pool.slice(0, count);
+
+  quiz = { mode, questions, index: 0, correct: 0, wrong: 0, answered: false, allPool: pool };
+  document.getElementById('quizSetup').classList.add('hidden');
+  document.getElementById('quizStage').classList.remove('hidden');
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion() {
+  const q = quiz.questions[quiz.index];
+  if (!q) return finishQuiz();
+  const card = document.getElementById('quizCard');
+  document.getElementById('quizProg').textContent = `Q${quiz.index+1} / ${quiz.questions.length}`;
+  document.getElementById('quizScore').textContent = `正解 ${quiz.correct} ／ 不正解 ${quiz.wrong}`;
+
+  if (quiz.mode === 'ko-ja') {
+    card.innerHTML = `
+      <div class="quiz-prompt">${escape(q.ko)}</div>
+      <div class="quiz-sub">${escape(q.kana || '')} ・ ${escape(q.pos || '')}</div>
+      <input class="quiz-input" id="quizInput" placeholder="日本語を入力" autofocus>
+      <div class="quiz-actions">
+        <button class="btn" id="quizSubmit">回答</button>
+        <button class="btn btn-ghost" id="quizSkip">わからない</button>
+      </div>
+    `;
+    setupTextQuiz(q, q.ja);
+  } else if (quiz.mode === 'ja-ko') {
+    card.innerHTML = `
+      <div class="quiz-prompt ja">${escape(q.ja)}</div>
+      <div class="quiz-sub">${escape(q.pos || '')}</div>
+      <input class="quiz-input" id="quizInput" placeholder="한글로 입력" autofocus>
+      <div class="quiz-actions">
+        <button class="btn" id="quizSubmit">回答</button>
+        <button class="btn btn-ghost" id="quizSkip">わからない</button>
+      </div>
+    `;
+    setupTextQuiz(q, q.ko);
+  } else if (quiz.mode === 'choice') {
+    // 4 choices: correct + 3 random from pool
+    const distractors = quiz.allPool.filter(v => v.id !== q.id);
+    shuffle(distractors);
+    const choices = [q.ja, ...distractors.slice(0, 3).map(v => v.ja)];
+    shuffle(choices);
+    card.innerHTML = `
+      <div class="quiz-prompt">${escape(q.ko)}</div>
+      <div class="quiz-sub">${escape(q.kana || '')}</div>
+      <div class="quiz-choice-grid">
+        ${choices.map(c => `<button class="quiz-choice" data-val="${escape(c)}">${escape(c)}</button>`).join('')}
+      </div>
+    `;
+    card.querySelectorAll('.quiz-choice').forEach(b => {
+      b.addEventListener('click', () => {
+        const correct = b.dataset.val === q.ja;
+        b.classList.add(correct ? 'correct' : 'wrong');
+        if (!correct) {
+          card.querySelectorAll('.quiz-choice').forEach(x => { if (x.dataset.val === q.ja) x.classList.add('correct'); });
+        }
+        registerAnswer(q, correct);
+        setTimeout(() => { quiz.index++; renderQuizQuestion(); }, 900);
+      });
+    });
+  }
+}
+
+function setupTextQuiz(q, answer) {
+  const input = document.getElementById('quizInput');
+  const submit = document.getElementById('quizSubmit');
+  const skip = document.getElementById('quizSkip');
+  input.focus();
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit.click(); });
+  submit.addEventListener('click', () => {
+    const val = input.value.trim();
+    if (!val) return;
+    const correct = normalizeAns(val) === normalizeAns(answer) || (answer.includes('／') && answer.split('／').map(normalizeAns).includes(normalizeAns(val))) || (answer.includes('/') && answer.split('/').map(normalizeAns).includes(normalizeAns(val)));
+    showAnswerFeedback(correct, answer, q);
+  });
+  skip.addEventListener('click', () => showAnswerFeedback(false, answer, q));
+}
+
+function normalizeAns(s) {
+  return (s || '').replace(/\s+/g,'').replace(/[、。.,!?！？]/g,'').toLowerCase();
+}
+
+function showAnswerFeedback(correct, answer, q) {
+  const card = document.getElementById('quizCard');
+  registerAnswer(q, correct);
+  card.innerHTML = `
+    <div class="quiz-prompt">${escape(q.ko)}</div>
+    <div class="quiz-sub">${escape(q.kana || '')}</div>
+    <div class="quiz-answer">${correct ? '⭕️ 正解' : '❌ 正解は'}<br>${escape(answer)}</div>
+    <div class="quiz-actions"><button class="btn btn-primary" id="quizNext">次へ ▶</button></div>
+  `;
+  document.getElementById('quizNext').addEventListener('click', () => { quiz.index++; renderQuizQuestion(); });
+  document.getElementById('quizNext').focus();
+}
+
+function registerAnswer(q, correct) {
+  // find the real vocab entry by id + song
+  const s = state.songs.find(s => s.id === q._songId);
+  if (!s) return;
+  const v = s.vocab.find(v => v.id === q.id);
+  if (!v) return;
+  if (correct) {
+    v.correct = (v.correct || 0) + 1;
+    quiz.correct++;
+    if (v.correct >= 3) v.mastered = true;
+  } else {
+    v.wrong = (v.wrong || 0) + 1;
+    v.correct = 0;
+    v.mastered = false;
+    quiz.wrong++;
+  }
+  save();
+}
+
+function finishQuiz() {
+  document.getElementById('quizStage').classList.add('hidden');
+  const total = quiz.correct + quiz.wrong;
+  const pct = total ? Math.round(quiz.correct / total * 100) : 0;
+  const r = document.getElementById('quizResult');
+  r.classList.remove('hidden');
+  r.innerHTML = `
+    <h2>テスト完了 🎉</h2>
+    <div class="score">${pct}%</div>
+    <div>正解 ${quiz.correct} ／ 不正解 ${quiz.wrong} ／ 合計 ${total}</div>
+    <div style="margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-primary" id="quizAgain">もう一度</button>
+      <button class="btn" id="quizBack">設定に戻る</button>
+    </div>
+  `;
+  document.getElementById('quizAgain').addEventListener('click', () => startQuiz());
+  document.getElementById('quizBack').addEventListener('click', () => renderQuizSetup());
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+}
+
+// =================== MODAL ===================
+function showModal(title, fields, onSubmit, opts) {
+  const root = document.getElementById('modalRoot');
+  const deleteBtn = opts?.showDelete ? `<button class="btn btn-danger" id="modalDelete" style="margin-right:auto;">削除</button>` : '';
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal">
+        <h3>${escape(title)}</h3>
+        ${fields.map(f => `<label>${escape(f.label)}</label><input data-field="${f.name}" value="${escape(f.value||'')}">`).join('')}
+        <div class="modal-actions">
+          ${deleteBtn}
+          <button class="btn" id="modalCancel">キャンセル</button>
+          <button class="btn btn-primary" id="modalOk">OK</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const close = () => { root.innerHTML = ''; };
+  root.querySelector('#modalCancel').addEventListener('click', close);
+  root.querySelector('#modalOk').addEventListener('click', () => {
+    const vals = {};
+    root.querySelectorAll('input[data-field]').forEach(i => vals[i.dataset.field] = i.value);
+    onSubmit(vals, 'ok'); close();
+  });
+  root.querySelector('#modalDelete')?.addEventListener('click', () => {
+    if (confirm('削除しますか？')) { onSubmit({}, 'delete'); close(); }
+  });
+  root.querySelector('input')?.focus();
+}
+
+// =================== SYNC ===================
+document.getElementById('syncBtn').addEventListener('click', openSyncModal);
+
+function openSyncModal() {
+  const root = document.getElementById('modalRoot');
+  const code = localStorage.getItem(SYNC_CODE_KEY);
+  root.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:520px;">
+        <h3>☁️ クラウド同期</h3>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 12px;">
+          同じ同期コードを別端末（iPhone等）で使うと、データが自動同期されます。
+        </p>
+        ${code ? `
+          <label>現在の同期コード</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input id="curCode" value="${escape(code)}" readonly style="font-family:monospace;font-size:13px;">
+            <button class="btn btn-sm" id="copyCode">コピー</button>
+          </div>
+          <p style="font-size:11px;color:var(--muted);margin:4px 0 0;">このコードを他の端末で入力すれば同期できます</p>
+          <div style="margin-top:16px;border-top:1px solid var(--paper-edge);padding-top:12px;"></div>
+        ` : ''}
+        <label>${code ? '別の同期コードに切替' : '既存の同期コードを入力'}</label>
+        <input id="newCode" placeholder="他端末で生成したコードを貼り付け">
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="useCode">このコードに接続</button>
+          <button class="btn" id="genCode">新規コードを生成</button>
+          ${code ? `<button class="btn btn-danger" id="discCode" style="margin-left:auto;">切断</button>` : ''}
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="syncClose">閉じる</button>
+        </div>
+      </div>
+    </div>
+  `;
+  const close = () => root.innerHTML = '';
+  root.querySelector('#syncClose').addEventListener('click', close);
+  root.querySelector('#copyCode')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(code).then(() => toast('コピーしました'));
+  });
+  root.querySelector('#useCode').addEventListener('click', async () => {
+    const c = root.querySelector('#newCode').value.trim();
+    if (!c) { alert('コードを入力してください'); return; }
+    await connectExistingCode(c);
+    close();
+  });
+  root.querySelector('#genCode').addEventListener('click', async () => {
+    if (code && !confirm('既存の接続を切って新規コードを生成します。よろしいですか？')) return;
+    await generateNewCode();
+    close();
+    setTimeout(openSyncModal, 100);
+  });
+  root.querySelector('#discCode')?.addEventListener('click', () => {
+    if (confirm('クラウド同期を切断します。ローカルデータは残ります。')) {
+      disconnectCloud(); close();
+    }
+  });
+}
+
+// =================== EXPORT/IMPORT ===================
+document.getElementById('newSongBtn').addEventListener('click', newSong);
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hangul-note-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('JSONを書き出しました');
+});
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const parsed = JSON.parse(r.result);
+      if (!parsed.songs) throw new Error('invalid format');
+      if (confirm('現在のデータを置き換えますか？（書き出してからの方が安全です）')) {
+        state = migrateState(parsed); save(); switchView('library'); toast('読み込み完了');
+      }
+    } catch(err) { alert('読み込み失敗: ' + err.message); }
+  };
+  r.readAsText(f);
+  e.target.value = '';
+});
+
+// =================== UTIL ===================
+function escape(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// =================== INIT ===================
+switchView('library');
+</script>
+</body>
+</html>
