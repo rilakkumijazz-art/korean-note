@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ライフプランノート</title>
+<style>
+  :root {
+    --paper: #fbf7ee;
+    --paper-edge: #efe6d0;
+    --ink: #2a2417;
+    --accent: #c5482e;
+    --accent2: #2f6b8f;
+    --rule: #b8c8d9;
+    --margin: #e2b8b0;
+    --muted: #8a7f6b;
+    --ok: #2f8a4f;
+    --warn: #c98a1a;
+    --bg: #f3ede0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif; }
+  body { min-height: 100vh; }
+
+  header {
+    background: linear-gradient(180deg, #fff 0%, #f7efde 100%);
+    border-bottom: 2px solid var(--paper-edge);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+  header h1 .en { font-size: 13px; color: var(--muted); margin-left: 8px; font-weight: normal; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  nav button {
+    background: transparent; border: 1px solid var(--paper-edge); color: var(--ink);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer; font-size: 14px;
+    transition: all .15s; position: relative;
+  }
+  nav button:hover { background: var(--paper); }
+  nav button.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  nav button .done { color: var(--ok); margin-left: 4px; }
+  nav button.active .done { color: #9be0ae; }
+  .header-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .header-actions button, .btn {
+    background: var(--paper); border: 1px solid var(--paper-edge); color: var(--ink);
+    padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-primary:hover { filter: brightness(1.05); }
+  .btn-ghost { background: transparent; border-style: dashed; }
+  .btn-danger { background: transparent; color: var(--accent); border-color: var(--accent); }
+  .btn-sm { padding: 3px 8px; font-size: 12px; }
+  .saved-badge { font-size: 12px; color: var(--muted); }
+
+  main { padding: 24px; max-width: 980px; margin: 0 auto; }
+
+  .panel {
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: 6px;
+    padding: 24px 26px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    background-image:
+      linear-gradient(to right, transparent 44px, var(--margin) 44px, var(--margin) 46px, transparent 46px);
+  }
+  .panel > * { padding-left: 22px; }
+  .step-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .step-head .num {
+    background: var(--accent); color: white; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px; letter-spacing: .5px;
+  }
+  .step-head h2 { margin: 0; font-size: 20px; color: var(--accent2); }
+  .lead { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 6px 0 20px; }
+  .panel h3 { font-size: 15px; color: var(--accent); margin: 24px 0 8px; }
+  .panel p { line-height: 1.8; font-size: 14px; }
+
+  .callout {
+    background: rgba(47,107,143,.07);
+    border-left: 4px solid var(--accent2);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 16px; margin: 14px 0; font-size: 14px; line-height: 1.7;
+    margin-left: 22px;
+  }
+  .callout.warn { background: rgba(201,138,26,.09); border-left-color: var(--warn); }
+  .callout.accent { background: rgba(197,72,46,.07); border-left-color: var(--accent); }
+  .callout strong { color: var(--ink); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 14px; margin: 8px 0 4px; }
+  .card {
+    background: rgba(255,255,255,.55); border: 1px solid var(--paper-edge);
+    border-radius: 8px; padding: 16px;
+  }
+  .card .icon { font-size: 24px; }
+  .card h4 { margin: 8px 0 6px; font-size: 15px; color: var(--accent2); }
+  .card p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  .doc-row { display: flex; gap: 14px; align-items: flex-start; margin: 14px 0; }
+  .doc-row .badge {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px; background: var(--accent2);
+    color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px;
+  }
+  .doc-row .body h4 { margin: 4px 0 4px; font-size: 15px; }
+  .doc-row .body p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  .steps-flow { display: grid; gap: 10px; margin: 10px 0; }
+  .steps-flow .sflow {
+    display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,.5);
+    border: 1px solid var(--paper-edge); border-radius: 8px; padding: 12px 14px; font-size: 14px;
+    cursor: pointer;
+  }
+  .steps-flow .sflow:hover { border-color: var(--accent2); }
+  .steps-flow .sflow .n { flex:0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+
+  /* Forms */
+  label.field { display: block; margin: 14px 0 4px; font-size: 13px; color: var(--muted); }
+  .qgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  @media (max-width: 720px){ .qgrid { grid-template-columns: 1fr; } }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; border: 1px solid var(--paper-edge); background: white; font-family: inherit;
+    font-size: 14px; padding: 8px 10px; border-radius: 5px; color: var(--ink); resize: vertical;
+  }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent2); border-color: transparent; }
+  textarea.big { min-height: 120px; line-height: 1.7; }
+
+  table.data { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.5); margin-top: 6px; }
+  table.data th, table.data td { border-bottom: 1px solid var(--paper-edge); padding: 6px 8px; text-align: left; font-size: 13px; vertical-align: middle; }
+  table.data th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.5px; background: rgba(0,0,0,0.02); }
+  table.data td input { border: none; background: transparent; padding: 4px; border-bottom: 1px dashed transparent; }
+  table.data td input:focus { outline: none; background: white; border-bottom-color: var(--accent2); }
+  table.data td.num, table.data th.num { text-align: right; }
+  table.data td.num input { text-align: right; }
+  table.data tfoot td { font-weight: 700; border-top: 2px solid var(--paper-edge); border-bottom: none; }
+  .row-actions button { background: none; border: none; cursor: pointer; padding: 2px 4px; color: var(--muted); font-size: 15px; }
+  .row-actions button:hover { color: var(--accent); }
+
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 720px){ .twocol { grid-template-columns: 1fr; } }
+  .subtable-title { font-size: 14px; color: var(--accent); font-weight: 600; margin: 18px 0 2px; }
+
+  .summary-strip { display: flex; flex-wrap: wrap; gap: 14px; margin: 16px 0 4px; }
+  .stat-box {
+    flex: 1 1 150px; background: rgba(255,255,255,.6); border: 1px solid var(--paper-edge);
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .stat-box .k { font-size: 12px; color: var(--muted); }
+  .stat-box .v { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .v.pos { color: var(--ok); } .v.neg { color: var(--accent); }
+
+  .assume-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 12px 18px; align-items: end; }
+  .cf-wrap { overflow-x: auto; margin-top: 8px; }
+  table.cf { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 640px; }
+  table.cf th, table.cf td { padding: 6px 8px; border-bottom: 1px solid var(--paper-edge); text-align: right; white-space: nowrap; }
+  table.cf th { position: sticky; top: 0; background: var(--paper-edge); color: var(--ink); font-size: 11px; }
+  table.cf td.lbl, table.cf th.lbl { text-align: left; }
+  table.cf td.event { text-align: left; color: var(--accent); font-size: 12px; }
+  table.cf tr.neg-year { background: rgba(197,72,46,.06); }
+  table.cf td.neg { color: var(--accent); font-weight: 700; }
+  table.cf td.savings-neg { color: #fff; background: var(--accent); font-weight: 700; }
+
+  .hidden { display: none !important; }
+  .empty-hint { color: var(--muted); font-size: 13px; font-style: italic; padding: 8px 0; }
+  .footnote { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 18px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 20px; border-radius: 4px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 200; }
+  .toast.show { opacity: 1; }
+  .progress-line { height: 6px; background: var(--paper-edge); border-radius: 3px; overflow: hidden; margin: 0 0 20px; }
+  .progress-line > div { height: 100%; background: var(--ok); transition: width .3s; }
+  a.libe { color: var(--accent2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ライフプランノート<span class="en">Life Plan Note</span></h1>
+  <nav id="nav">
+    <button data-view="intro" class="active">📘 はじめに</button>
+    <button data-view="step1">① 価値観</button>
+    <button data-view="step2">② 収支・資産</button>
+    <button data-view="step3">③ ライフイベント</button>
+    <button data-view="step4">④ キャッシュフロー</button>
+  </nav>
+  <div class="header-actions">
+    <span class="saved-badge" id="savedBadge">自動保存</span>
+    <button id="exportBtn">📤 書き出し</button>
+    <button id="importBtn">📥 読み込み</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+  </div>
+</header>
+
+<main>
+  <div class="progress-line"><div id="progressFill" style="width:0%"></div></div>
+
+  <!-- ============ INTRO ============ -->
+  <section id="view-intro">
+    <div class="panel">
+      <div class="step-head"><span class="num">基本</span><h2>ライフプランって何？</h2></div>
+      <p class="lead">結論、ライフプランとは「人生の設計図」を「お金に落とし込んだ」もの。<br>
+      毎日少しずつでOK。まずは基本をおさえて、①→④の順に自分のプランを作っていこう😊</p>
+
+      <h3>2つのポイント</h3>
+      <div class="cards">
+        <div class="card">
+          <div class="icon">🗺️</div>
+          <h4>① 人生の設計図であること</h4>
+          <p>夢・仕事・住む場所・結婚・子ども・リタイア・老後…「どう生きたいか（価値観）」が必ず含まれる。</p>
+        </div>
+        <div class="card">
+          <div class="icon">💰</div>
+          <h4>② お金に落とし込むこと</h4>
+          <p>「いつかマイホーム」ではなく「35歳で5000万円の家」。数字が伴わない計画はただの妄想。</p>
+        </div>
+      </div>
+
+      <h3>作る3つのメリット</h3>
+      <div class="cards">
+        <div class="card"><div class="icon">😌</div><h4>不安の解消</h4><p>お金の流れが見える化され、将来への漠然とした不安が消える。</p></div>
+        <div class="card"><div class="icon">🛍️</div><h4>罪悪感なく使える</h4><p>本当に欲しいもの・やりたいことに、笑顔でお金を払えるようになる。</p></div>
+        <div class="card"><div class="icon">📈</div><h4>人生の上方修正</h4><p>定期的に見直すたびに、人生がより良い方向へ更新されていく。</p></div>
+      </div>
+
+      <h3>ライフプランを構成する3つの資料</h3>
+      <div class="doc-row"><div class="badge">1</div><div class="body">
+        <h4>収支表＆バランスシート</h4>
+        <p>毎月の家計簿（収入・支出・黒字か赤字か）と、資産・負債の一覧。家計の「現在位置」を示す。収支や純資産が赤字なら、お金の世界では“遭難中”。</p>
+      </div></div>
+      <div class="doc-row"><div class="badge">2</div><div class="body">
+        <h4>ライフイベント表</h4>
+        <p>転職・結婚・出産・進学・住宅購入など「大きな出来事」を、いつ・何歳で・いくらかかるか一覧にしたもの。</p>
+      </div></div>
+      <div class="doc-row"><div class="badge">3</div><div class="body">
+        <h4>キャッシュフロー表</h4>
+        <p>毎年の収支・貯蓄残高・ライフイベントをまとめ、将来の推移を眺める表。昇給や物価上昇も加味した「未来の到達予想地点」。ライフプランの心臓部分。</p>
+      </div></div>
+
+      <h3>作り方は、この4ステップ</h3>
+      <div class="steps-flow" id="stepsFlow">
+        <div class="sflow" data-goto="step1"><span class="n">1</span><div><b>価値観をまとめる</b> — どう生きたいかを言葉にする</div></div>
+        <div class="sflow" data-goto="step2"><span class="n">2</span><div><b>収支表＆バランスシート</b> — いまの家計と資産を書く</div></div>
+        <div class="sflow" data-goto="step3"><span class="n">3</span><div><b>ライフイベント表</b> — 理想の出来事と費用を並べる</div></div>
+        <div class="sflow" data-goto="step4"><span class="n">4</span><div><b>キャッシュフロー表</b> — ①〜③から自動で推移を作る</div></div>
+      </div>
+      <div class="callout accent">
+        <strong>めんどくさい人へ：</strong> STEP④が大変ならパスしてOK。「毎月黒字・純資産が増加傾向・理想のライフイベントが整理されている」なら、それだけで家計管理の上位1割やで。
+      </div>
+      <p class="footnote">
+        参考：リベシティ「価値観マップ」→ <a class="libe" href="https://site.libecity.com/content/valuesmap" target="_blank" rel="noopener">site.libecity.com/content/valuesmap</a><br>
+        ※このノートはあなたのブラウザ内だけに保存されます（自動保存）。他の端末と共有したいときは「書き出し／読み込み」を使ってな。
+      </p>
+      <p><button class="btn btn-primary" data-goto="step1">① 価値観づくりから始める →</button></p>
+    </div>
+  </section>
+
+  <!-- ============ STEP 1 : VALUES ============ -->
+  <section id="view-step1" class="hidden">
+    <div class="panel">
+      <div class="step-head"><span class="num">STEP 1</span><h2>価値観 — どう生きたいか</h2></div>
+      <p class="lead">まずは肩の力を抜いて、欲望全開で。正解はないので、思いつくままに書いてOK。すでに「価値観マップ」がある人はそれを貼り付けてもええで。</p>
+
+      <label class="field" for="v_name">お名前・ニックネーム（任意）</label>
+      <input type="text" id="v_name" data-profile="name" placeholder="例：りらっくま">
+
+      <div class="qgrid">
+        <div><label class="field">現在の年齢の基準：生まれた年（西暦）</label>
+          <input type="number" data-profile="birthYear" placeholder="例：1990"></div>
+        <div><label class="field">プランの開始年（西暦）</label>
+          <input type="number" data-profile="baseYear" placeholder="例：2026"></div>
+      </div>
+
+      <h3>自由記述：私の価値観マップ</h3>
+      <textarea class="big" data-values="text" placeholder="どんな人生を送りたい？　大切にしたいことは？　自由に書いてみよう。"></textarea>
+
+      <h3>質問に答えてみる（埋められるところだけでOK）</h3>
+      <div class="qgrid" id="valueQs"></div>
+
+      <p style="margin-top:20px"><button class="btn btn-primary" data-goto="step2">② 収支・資産へ進む →</button></p>
+    </div>
+  </section>
+
+  <!-- ============ STEP 2 : BUDGET + BALANCE SHEET ============ -->
+  <section id="view-step2" class="hidden">
+    <div class="panel">
+      <div class="step-head"><span class="num">STEP 2</span><h2>収支表＆バランスシート — 家計の現在位置</h2></div>
+      <p class="lead">いまの「毎月の収支」と「資産・負債」を書き出そう。金額はすべて円（1万円なら 10000）。ざっくりでOK、あとで直せるで。</p>
+
+      <div class="twocol">
+        <div>
+          <div class="subtable-title">▶ 毎月の収入</div>
+          <table class="data"><thead><tr><th>項目</th><th class="num">月額(円)</th><th></th></tr></thead>
+            <tbody id="incomeBody"></tbody>
+            <tfoot><tr><td>合計</td><td class="num" id="incomeTotal">0</td><td></td></tr></tfoot>
+          </table>
+          <button class="btn btn-ghost btn-sm" data-add="income" style="margin-top:8px">+ 収入を追加</button>
+        </div>
+        <div>
+          <div class="subtable-title">▶ 毎月の支出</div>
+          <table class="data"><thead><tr><th>項目</th><th class="num">月額(円)</th><th></th></tr></thead>
+            <tbody id="expenseBody"></tbody>
+            <tfoot><tr><td>合計</td><td class="num" id="expenseTotal">0</td><td></td></tr></tfoot>
+          </table>
+          <button class="btn btn-ghost btn-sm" data-add="expenses" style="margin-top:8px">+ 支出を追加</button>
+        </div>
+      </div>
+
+      <div class="summary-strip">
+        <div class="stat-box"><div class="k">月間の収支</div><div class="v" id="monthlyBal">0円</div></div>
+        <div class="stat-box"><div class="k">年間の収支</div><div class="v" id="yearlyBal">0円</div></div>
+      </div>
+
+      <h3>バランスシート（資産と負債）</h3>
+      <div class="twocol">
+        <div>
+          <div class="subtable-title">▶ 資産</div>
+          <table class="data"><thead><tr><th>項目</th><th class="num">金額(円)</th><th></th></tr></thead>
+            <tbody id="assetBody"></tbody>
+            <tfoot><tr><td>合計</td><td class="num" id="assetTotal">0</td><td></td></tr></tfoot>
+          </table>
+          <button class="btn btn-ghost btn-sm" data-add="assets" style="margin-top:8px">+ 資産を追加</button>
+        </div>
+        <div>
+          <div class="subtable-title">▶ 負債</div>
+          <table class="data"><thead><tr><th>項目</th><th class="num">金額(円)</th><th></th></tr></thead>
+            <tbody id="liabilityBody"></tbody>
+            <tfoot><tr><td>合計</td><td class="num" id="liabilityTotal">0</td><td></td></tr></tfoot>
+          </table>
+          <button class="btn btn-ghost btn-sm" data-add="liabilities" style="margin-top:8px">+ 負債を追加</button>
+        </div>
+      </div>
+
+      <div class="summary-strip">
+        <div class="stat-box"><div class="k">純資産（資産 − 負債）</div><div class="v" id="netWorth">0円</div></div>
+      </div>
+      <div class="callout warn" id="rescueNote" style="display:none"></div>
+
+      <p style="margin-top:20px"><button class="btn btn-primary" data-goto="step3">③ ライフイベントへ進む →</button></p>
+    </div>
+  </section>
+
+  <!-- ============ STEP 3 : LIFE EVENTS ============ -->
+  <section id="view-step3" class="hidden">
+    <div class="panel">
+      <div class="step-head"><span class="num">STEP 3</span><h2>ライフイベント表 — 理想の出来事</h2></div>
+      <p class="lead">「あの街に住む」「南極でオーロラ」「40歳でFIRE」…欲望全開で、いつ・何にいくらかかるかを並べよう。<br>
+      「毎年の収入変化」は、その年から続く収入の増減（例：配偶者が働き始めて +年113万円）。無ければ空欄でOK。</p>
+
+      <div class="cf-wrap">
+      <table class="data">
+        <thead><tr>
+          <th style="width:90px">年(西暦)</th><th style="width:60px">年齢</th><th>ライフイベント</th>
+          <th class="num" style="width:130px">費用・一時(円)</th>
+          <th class="num" style="width:150px">毎年の収入変化(円/年)</th><th style="width:36px"></th>
+        </tr></thead>
+        <tbody id="eventBody"></tbody>
+      </table>
+      </div>
+      <button class="btn btn-ghost btn-sm" data-add="events" style="margin-top:8px">+ ライフイベントを追加</button>
+
+      <div class="callout">💡 年齢は「生まれた年」（STEP1）から自動で計算されるで。生まれた年を入れておくと便利。</div>
+
+      <p style="margin-top:20px"><button class="btn btn-primary" data-goto="step4">④ キャッシュフロー表を見る →</button></p>
+    </div>
+  </section>
+
+  <!-- ============ STEP 4 : CASH FLOW ============ -->
+  <section id="view-step4" class="hidden">
+    <div class="panel">
+      <div class="step-head"><span class="num">STEP 4</span><h2>キャッシュフロー表 — 未来の到達予想地点</h2></div>
+      <p class="lead">①〜③から、将来の推移を自動計算。昇給や物価上昇の前提を変えると、未来の貯蓄残高がどう動くか見えるで。数字が多くて吐きそうになっても大丈夫、それが普通や😂</p>
+
+      <h3>前提（アシュンプション）</h3>
+      <div class="assume-grid">
+        <div><label class="field">何年先まで見る？</label>
+          <input type="number" data-profile="projectionYears" min="1" max="70" placeholder="例：30"></div>
+        <div><label class="field">収入の上昇率（%/年）</label>
+          <input type="number" data-profile="incomeGrowth" step="0.1" placeholder="例：1.0"></div>
+        <div><label class="field">支出の上昇率・物価(%/年)</label>
+          <input type="number" data-profile="inflation" step="0.1" placeholder="例：1.5"></div>
+      </div>
+
+      <div class="summary-strip">
+        <div class="stat-box"><div class="k">開始時の貯蓄（純資産）</div><div class="v" id="cfStart">0円</div></div>
+        <div class="stat-box"><div class="k">最終年の貯蓄残高（予想）</div><div class="v" id="cfEnd">0円</div></div>
+      </div>
+      <div class="callout warn" id="cfWarn" style="display:none"></div>
+
+      <div class="cf-wrap">
+        <table class="cf" id="cfTable"></table>
+      </div>
+      <p class="empty-hint" id="cfEmpty">STEP②で収入・支出を入力すると、ここに表が出てくるで。</p>
+
+      <p class="footnote">
+        ※これは簡易シミュレーション。収入・支出は入力額をベースに、上昇率で毎年伸ばして計算しているで。<br>
+        ※金額は見やすさ優先で「万円」表示（小数第1位まで）。マイナスの年は赤、貯蓄がマイナスになったら赤背景（=遭難サイン）。<br>
+        ※欲望を全開にした結果カネが足りなければ、稼げばええだけや。楽しんで、稼いで、楽しんで、使おう😊
+      </p>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+const STORAGE_KEY = 'lifeplan-note:v1';
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+const VALUE_QUESTIONS = [
+  ['dream', '人生の夢・目標は？'],
+  ['job', 'どんな仕事に就きたい？'],
+  ['career', 'キャリアチェンジはしたい？'],
+  ['place', 'どんな街・どんな家に住みたい？'],
+  ['marriage', '結婚はどうしたい？'],
+  ['kids', '子どもはどうしたい？'],
+  ['retire', '何歳でリタイアしたい？'],
+  ['oldage', '老後はどんな暮らしがしたい？'],
+];
+
+function blankState() {
+  return {
+    updatedAt: Date.now(),
+    profile: { name:'', birthYear:'', baseYear: new Date().getFullYear(), projectionYears: 30, incomeGrowth: 1.0, inflation: 1.5 },
+    values: { text:'', answers:{} },
+    income: [ {id:uid(), label:'給与（手取り）', amount:0} ],
+    expenses: [ {id:uid(), label:'家賃・住居', amount:0}, {id:uid(), label:'食費', amount:0} ],
+    assets: [ {id:uid(), label:'預貯金', amount:0} ],
+    liabilities: [],
+    events: [],
+  };
+}
+
+let state = load();
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return blankState();
+    const s = JSON.parse(raw);
+    const b = blankState();
+    return Object.assign(b, s, { profile: Object.assign(b.profile, s.profile||{}), values: Object.assign(b.values, s.values||{}) });
+  } catch(e) { return blankState(); }
+}
+let saveTimer = null;
+function save() {
+  state.updatedAt = Date.now();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const b = $('#savedBadge'); b.textContent = '✓ 保存しました';
+      setTimeout(()=> b.textContent='自動保存', 1200);
+    } catch(e) { toast('保存できませんでした'); }
+  }, 250);
+}
+
+/* ---------- number helpers ---------- */
+const num = v => { const n = parseFloat(String(v).replace(/[, ]/g,'')); return isFinite(n) ? n : 0; };
+const yen = n => Math.round(n).toLocaleString('ja-JP') + '円';
+const man = n => (n/10000).toLocaleString('ja-JP', {maximumFractionDigits:1}) + '万円';
+const sum = arr => arr.reduce((a,x)=> a + num(x.amount), 0);
+
+/* ---------- navigation ---------- */
+function show(view) {
+  $$('#nav button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  $$('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'view-' + view));
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+$('#nav').addEventListener('click', e => { const b = e.target.closest('button[data-view]'); if (b) show(b.dataset.view); });
+document.addEventListener('click', e => { const g = e.target.closest('[data-goto]'); if (g) { show(g.dataset.goto); e.preventDefault(); } });
+
+/* ---------- profile + values bindings ---------- */
+function bindProfile() {
+  $$('[data-profile]').forEach(el => {
+    const key = el.dataset.profile;
+    if (state.profile[key] !== undefined && state.profile[key] !== '') el.value = state.profile[key];
+    el.addEventListener('input', () => {
+      state.profile[key] = el.type === 'number' ? (el.value === '' ? '' : num(el.value)) : el.value;
+      save();
+      if (['birthYear','baseYear','projectionYears','incomeGrowth','inflation'].includes(key)) { renderEvents(); renderCashflow(); }
+      updateProgress();
+    });
+  });
+}
+function bindValues() {
+  const ta = $('[data-values="text"]');
+  ta.value = state.values.text || '';
+  ta.addEventListener('input', () => { state.values.text = ta.value; save(); updateProgress(); });
+
+  const wrap = $('#valueQs');
+  wrap.innerHTML = '';
+  VALUE_QUESTIONS.forEach(([k, q]) => {
+    const div = document.createElement('div');
+    const lab = document.createElement('label'); lab.className = 'field'; lab.textContent = q;
+    const inp = document.createElement('textarea'); inp.rows = 2; inp.value = state.values.answers[k] || '';
+    inp.addEventListener('input', () => { state.values.answers[k] = inp.value; save(); updateProgress(); });
+    div.append(lab, inp); wrap.append(div);
+  });
+}
+
+/* ---------- generic amount tables (income/expenses/assets/liabilities) ---------- */
+function renderAmountTable(key, bodyId, totalId) {
+  const body = $('#' + bodyId); body.innerHTML = '';
+  state[key].forEach(item => {
+    const tr = document.createElement('tr');
+    const tdL = document.createElement('td');
+    const inL = document.createElement('input'); inL.type='text'; inL.value = item.label; inL.placeholder='項目名';
+    inL.addEventListener('input', ()=>{ item.label = inL.value; save(); });
+    tdL.append(inL);
+
+    const tdA = document.createElement('td'); tdA.className='num';
+    const inA = document.createElement('input'); inA.type='text'; inA.inputMode='numeric';
+    inA.value = item.amount ? num(item.amount).toLocaleString('ja-JP') : '';
+    inA.placeholder='0';
+    inA.addEventListener('input', ()=>{ item.amount = num(inA.value); recalcStep2(); save(); });
+    inA.addEventListener('blur', ()=>{ inA.value = item.amount ? num(item.amount).toLocaleString('ja-JP') : ''; });
+    inA.addEventListener('focus', ()=>{ inA.value = item.amount || ''; });
+    tdA.append(inA);
+
+    const tdX = document.createElement('td'); tdX.className='row-actions';
+    const del = document.createElement('button'); del.textContent='🗑'; del.title='削除';
+    del.addEventListener('click', ()=>{ state[key] = state[key].filter(x=>x.id!==item.id); renderAmountTable(key, bodyId, totalId); recalcStep2(); save(); });
+    tdX.append(del);
+
+    tr.append(tdL, tdA, tdX); body.append(tr);
+  });
+  if (state[key].length === 0) {
+    const tr = document.createElement('tr'); const td = document.createElement('td');
+    td.colSpan = 3; td.className='empty-hint'; td.textContent='「+ 追加」から項目を入れてな';
+    tr.append(td); body.append(tr);
+  }
+  if (totalId) $('#' + totalId).textContent = num(sum(state[key])).toLocaleString('ja-JP');
+}
+
+function recalcStep2() {
+  $('#incomeTotal').textContent = num(sum(state.income)).toLocaleString('ja-JP');
+  $('#expenseTotal').textContent = num(sum(state.expenses)).toLocaleString('ja-JP');
+  $('#assetTotal').textContent = num(sum(state.assets)).toLocaleString('ja-JP');
+  $('#liabilityTotal').textContent = num(sum(state.liabilities)).toLocaleString('ja-JP');
+
+  const mBal = sum(state.income) - sum(state.expenses);
+  const yBal = mBal * 12;
+  const net = sum(state.assets) - sum(state.liabilities);
+
+  setStat('#monthlyBal', mBal, yen(mBal));
+  setStat('#yearlyBal', yBal, yen(yBal));
+  setStat('#netWorth', net, yen(net));
+
+  const note = $('#rescueNote');
+  const troubles = [];
+  if (mBal < 0) troubles.push('毎月の収支が赤字');
+  if (net < 0) troubles.push('純資産が赤字');
+  if (troubles.length) {
+    note.style.display = '';
+    note.innerHTML = '⚠️ <strong>' + troubles.join('・') + '</strong> の状態。お金の世界では“すでに遭難中”。一刻も早く自分を救助してあげよう（まずは支出の見直しから💪）。';
+  } else { note.style.display = 'none'; }
+
+  renderCashflow();
+  updateProgress();
+}
+function setStat(sel, value, text) {
+  const el = $(sel); el.textContent = text;
+  el.classList.toggle('pos', value > 0); el.classList.toggle('neg', value < 0);
+}
+
+/* ---------- life events ---------- */
+function ageFor(year) {
+  const by = num(state.profile.birthYear);
+  if (!by || !year) return '';
+  return num(year) - by;
+}
+function renderEvents() {
+  const body = $('#eventBody'); body.innerHTML = '';
+  state.events.forEach(ev => {
+    const tr = document.createElement('tr');
+
+    const tdY = document.createElement('td');
+    const inY = document.createElement('input'); inY.type='number'; inY.value = ev.year || ''; inY.placeholder='2030';
+    inY.addEventListener('input', ()=>{ ev.year = inY.value===''?'':num(inY.value); tdAge.textContent = ageFor(ev.year)===''?'':ageFor(ev.year)+'歳'; save(); renderCashflow(); });
+    tdY.append(inY);
+
+    const tdAge = document.createElement('td'); tdAge.textContent = ageFor(ev.year)===''?'':ageFor(ev.year)+'歳'; tdAge.style.color='var(--muted)';
+
+    const tdE = document.createElement('td');
+    const inE = document.createElement('input'); inE.type='text'; inE.value = ev.event||''; inE.placeholder='例：マイホーム購入';
+    inE.addEventListener('input', ()=>{ ev.event = inE.value; save(); renderCashflow(); });
+    tdE.append(inE);
+
+    const tdC = document.createElement('td'); tdC.className='num';
+    const inC = document.createElement('input'); inC.type='text'; inC.inputMode='numeric';
+    inC.value = ev.cost ? num(ev.cost).toLocaleString('ja-JP') : ''; inC.placeholder='0';
+    inC.addEventListener('input', ()=>{ ev.cost = num(inC.value); save(); renderCashflow(); });
+    inC.addEventListener('blur', ()=>{ inC.value = ev.cost ? num(ev.cost).toLocaleString('ja-JP') : ''; });
+    inC.addEventListener('focus', ()=>{ inC.value = ev.cost || ''; });
+    tdC.append(inC);
+
+    const tdI = document.createElement('td'); tdI.className='num';
+    const inI = document.createElement('input'); inI.type='text'; inI.inputMode='numeric';
+    inI.value = ev.incomeDelta ? num(ev.incomeDelta).toLocaleString('ja-JP') : ''; inI.placeholder='例：+1130000';
+    inI.addEventListener('input', ()=>{ ev.incomeDelta = num(inI.value); save(); renderCashflow(); });
+    inI.addEventListener('blur', ()=>{ inI.value = ev.incomeDelta ? num(ev.incomeDelta).toLocaleString('ja-JP') : ''; });
+    inI.addEventListener('focus', ()=>{ inI.value = ev.incomeDelta || ''; });
+    tdI.append(inI);
+
+    const tdX = document.createElement('td'); tdX.className='row-actions';
+    const del = document.createElement('button'); del.textContent='🗑'; del.title='削除';
+    del.addEventListener('click', ()=>{ state.events = state.events.filter(x=>x.id!==ev.id); renderEvents(); renderCashflow(); save(); });
+    tdX.append(del);
+
+    tr.append(tdY, tdAge, tdE, tdC, tdI, tdX); body.append(tr);
+  });
+  if (state.events.length === 0) {
+    const tr = document.createElement('tr'); const td = document.createElement('td');
+    td.colSpan = 6; td.className='empty-hint'; td.textContent='「+ ライフイベントを追加」から、理想の出来事をどんどん入れていこう😊';
+    tr.append(td); body.append(tr);
+  }
+  updateProgress();
+}
+
+/* ---------- cash flow ---------- */
+function renderCashflow() {
+  const baseIncome = sum(state.income) * 12;
+  const baseExpense = sum(state.expenses) * 12;
+  const startSavings = sum(state.assets) - sum(state.liabilities);
+  const baseYear = num(state.profile.baseYear) || new Date().getFullYear();
+  const years = Math.max(1, Math.min(70, num(state.profile.projectionYears) || 30));
+  const g = (num(state.profile.incomeGrowth) || 0) / 100;
+  const infl = (num(state.profile.inflation) || 0) / 100;
+
+  const tableEl = $('#cfTable');
+  const emptyEl = $('#cfEmpty');
+
+  if (baseIncome === 0 && baseExpense === 0) {
+    tableEl.innerHTML = ''; emptyEl.style.display = '';
+    setStat('#cfStart', startSavings, man(startSavings));
+    setStat('#cfEnd', 0, '—');
+    $('#cfWarn').style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  let savings = startSavings;
+  let firstNegYear = null;
+  const rows = [];
+  for (let i = 0; i < years; i++) {
+    const y = baseYear + i;
+    const income = baseIncome * Math.pow(1+g, i)
+      + state.events.filter(e => e.year && num(e.year) <= y).reduce((a,e)=> a + num(e.incomeDelta), 0);
+    const expense = baseExpense * Math.pow(1+infl, i);
+    const evThisYear = state.events.filter(e => num(e.year) === y);
+    const oneTime = evThisYear.reduce((a,e)=> a + num(e.cost), 0);
+    const balance = income - expense - oneTime;
+    savings += balance;
+    if (savings < 0 && firstNegYear === null) firstNegYear = y;
+    rows.push({ y, age: ageFor(y), income, expense, oneTime, evLabels: evThisYear.map(e=>e.event).filter(Boolean).join('・'), balance, savings });
+  }
+
+  let html = '<thead><tr><th class="lbl">年</th><th>年齢</th><th>年間収入</th><th>年間支出</th><th class="lbl">イベント</th><th>年間収支</th><th>貯蓄残高</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const negRow = r.balance < 0 ? ' class="neg-year"' : '';
+    html += '<tr'+negRow+'>'
+      + '<td class="lbl">'+r.y+'</td>'
+      + '<td>'+(r.age===''?'—':r.age+'歳')+'</td>'
+      + '<td>'+man(r.income)+'</td>'
+      + '<td>'+man(r.expense + r.oneTime)+'</td>'
+      + '<td class="event">'+(r.evLabels || '')+'</td>'
+      + '<td class="'+(r.balance<0?'neg':'')+'">'+man(r.balance)+'</td>'
+      + '<td class="'+(r.savings<0?'savings-neg':'')+'">'+man(r.savings)+'</td>'
+      + '</tr>';
+  });
+  html += '</tbody>';
+  tableEl.innerHTML = html;
+
+  setStat('#cfStart', startSavings, man(startSavings));
+  const last = rows[rows.length-1];
+  setStat('#cfEnd', last.savings, man(last.savings));
+
+  const warn = $('#cfWarn');
+  if (firstNegYear !== null) {
+    warn.style.display = '';
+    warn.innerHTML = '⚠️ このままだと <strong>'+firstNegYear+'年</strong> ごろに貯蓄がマイナスに。収入を増やす／支出やイベントを見直すと、未来を上方修正できるで💪';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+/* ---------- progress ---------- */
+function updateProgress() {
+  const done = {
+    step1: !!(state.values.text.trim() || Object.values(state.values.answers).some(v=>v && v.trim()) || state.profile.name),
+    step2: sum(state.income) > 0 || sum(state.expenses) > 0 || sum(state.assets) > 0,
+    step3: state.events.some(e => e.event && e.event.trim()),
+    step4: (sum(state.income) > 0 || sum(state.expenses) > 0),
+  };
+  $$('#nav button[data-view]').forEach(b => {
+    const v = b.dataset.view;
+    if (done[v] === undefined) return;
+    let mark = b.querySelector('.done');
+    if (done[v]) { if (!mark) { mark = document.createElement('span'); mark.className='done'; mark.textContent='✓'; b.append(mark); } }
+    else if (mark) mark.remove();
+  });
+  const count = Object.values(done).filter(Boolean).length;
+  $('#progressFill').style.width = (count/4*100) + '%';
+}
+
+/* ---------- add-row buttons ---------- */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-add]'); if (!btn) return;
+  const key = btn.dataset.add;
+  if (key === 'events') { state.events.push({id:uid(), year:'', event:'', cost:0, incomeDelta:0}); renderEvents(); }
+  else {
+    state[key].push({id:uid(), label:'', amount:0});
+    const map = { income:['incomeBody','incomeTotal'], expenses:['expenseBody','expenseTotal'], assets:['assetBody','assetTotal'], liabilities:['liabilityBody','liabilityTotal'] };
+    renderAmountTable(key, ...map[key]); recalcStep2();
+  }
+  save();
+});
+
+/* ---------- export / import ---------- */
+$('#exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lifeplan-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('書き出しました');
+});
+$('#importBtn').addEventListener('click', () => $('#importFile').click());
+$('#importFile').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const s = JSON.parse(reader.result);
+      const b = blankState();
+      state = Object.assign(b, s, { profile: Object.assign(b.profile, s.profile||{}), values: Object.assign(b.values, s.values||{}) });
+      save(); renderAll(); toast('読み込みました');
+    } catch(err) { toast('読み込みに失敗しました'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+/* ---------- toast ---------- */
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=> t.classList.remove('show'), 1800);
+}
+
+/* ---------- init ---------- */
+function renderAll() {
+  bindProfile();
+  bindValues();
+  renderAmountTable('income','incomeBody','incomeTotal');
+  renderAmountTable('expenses','expenseBody','expenseTotal');
+  renderAmountTable('assets','assetBody','assetTotal');
+  renderAmountTable('liabilities','liabilityBody','liabilityTotal');
+  recalcStep2();
+  renderEvents();
+  renderCashflow();
+  updateProgress();
+}
+renderAll();
+</script>
+</body>
+</html>
