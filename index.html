@@ -224,6 +224,14 @@
   .modal input { width: 100%; padding: 8px; border: 1px solid var(--paper-edge); border-radius: 4px; font-family: inherit; }
   .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
+  /* === BGM control === */
+  .bgm-control { display: flex; align-items: center; gap: 6px; }
+  .bgm-control button.playing { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+  .bgm-control input[type=range] {
+    width: 68px; accent-color: var(--accent2); cursor: pointer; height: 4px;
+  }
+  @media (max-width: 620px) { .bgm-control input[type=range] { display: none; } }
+
   .hidden { display: none !important; }
 
   .empty-state { color: var(--muted); padding: 30px; text-align: center; font-size: 13px; font-style: italic; }
@@ -243,6 +251,10 @@
     <button data-view="quiz">🎯 単語テスト</button>
   </nav>
   <div class="header-actions">
+    <div class="bgm-control">
+      <button id="bgmBtn" title="BGM: なんだか切ない夜（クリックで再生）">🎵 <span id="bgmStatus">BGM</span></button>
+      <input type="range" id="bgmVol" min="0" max="100" value="45" title="BGM音量">
+    </div>
     <button id="syncBtn" title="クラウド同期設定">☁️ <span id="syncStatus">未接続</span></button>
     <button id="newSongBtn" class="btn-primary">+ 新規ノート</button>
     <button id="exportBtn">📤 書き出し</button>
@@ -1442,6 +1454,170 @@ document.getElementById('importFile').addEventListener('change', e => {
 function escape(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// =================== BGM（なんだか切ない夜 / アンビエント自動生成）===================
+// 外部音源を使わず Web Audio API でその場生成する、切なめの夜アンビエント。
+// コード進行 Am7 - Dm7 - Fmaj7 - E7（イ短調）＋まばらな旋律＋かすかな夜のノイズ。
+const BGM_STATE_KEY = 'hangul-note:bgm-on';
+const BGM_VOL_KEY   = 'hangul-note:bgm-vol';
+
+const BGM = (() => {
+  let ctx = null, master = null, filter = null, delay = null, delayGain = null;
+  let noiseSrc = null, noiseGain = null;
+  let playing = false;
+  let chordTimer = null, melodyTimer = null;
+  let step = 0;
+
+  function clampVol(v) { return isNaN(v) ? 0.45 : Math.min(1, Math.max(0, v)); }
+  let vol = clampVol(parseFloat(localStorage.getItem(BGM_VOL_KEY)));
+
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  // i - iv - VI - V（イ短調） … 切ない王道進行
+  const CHORDS = [
+    [57, 60, 64, 67], // Am7
+    [50, 53, 57, 60], // Dm7
+    [53, 57, 60, 64], // Fmaj7
+    [52, 56, 59, 64], // E7
+  ];
+  const PENTA = [69, 72, 74, 76, 79, 81, 84]; // イ短ペンタトニック
+  const CHORD_DUR = 7.5;  // 1コードの長さ(秒)
+  const MEL_INT   = 2600; // 旋律を鳴らす判定間隔(ms)
+
+  function ensureCtx() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = vol;
+    filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 1600;
+    filter.Q.value = 0.3;
+    // 空間を出すためのフィードバックディレイ
+    delay = ctx.createDelay(1.0);
+    delay.delayTime.value = 0.42;
+    delayGain = ctx.createGain();
+    delayGain.gain.value = 0.32;
+    filter.connect(master);
+    filter.connect(delay);
+    delay.connect(delayGain);
+    delayGain.connect(delay); // feedback
+    delayGain.connect(master);
+    master.connect(ctx.destination);
+  }
+
+  function startNoise() {
+    const len = ctx.sampleRate * 2;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+    noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = buf;
+    noiseSrc.loop = true;
+    const nf = ctx.createBiquadFilter();
+    nf.type = 'bandpass'; nf.frequency.value = 600; nf.Q.value = 0.5;
+    noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0;
+    noiseSrc.connect(nf); nf.connect(noiseGain); noiseGain.connect(master);
+    noiseSrc.start();
+    noiseGain.gain.setTargetAtTime(0.015, ctx.currentTime, 2); // かすかな夜の空気
+  }
+
+  function playChord(midis) {
+    const t = ctx.currentTime;
+    const peak = 0.10 / midis.length * 1.6;
+    midis.forEach(m => {
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(peak, t + 2.0);                 // ゆっくり立ち上げ
+      g.gain.linearRampToValueAtTime(peak * 0.8, t + CHORD_DUR * 0.7);
+      g.gain.linearRampToValueAtTime(0.0001, t + CHORD_DUR + 1.5);   // 余韻を残して消える
+      const o1 = ctx.createOscillator(); o1.type = 'sine';     o1.frequency.value = mtof(m);
+      const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = mtof(m); o2.detune.value = 6;
+      o1.connect(g); o2.connect(g); g.connect(filter);
+      o1.start(t); o2.start(t);
+      o1.stop(t + CHORD_DUR + 2); o2.stop(t + CHORD_DUR + 2);
+    });
+  }
+
+  function playMelodyNote() {
+    if (Math.random() < 0.45) return; // まばらに
+    const m = PENTA[Math.floor(Math.random() * PENTA.length)];
+    const t = ctx.currentTime;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.06, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = mtof(m);
+    o.connect(g); g.connect(filter);
+    o.start(t); o.stop(t + 2.4);
+  }
+
+  function tickChord() { playChord(CHORDS[step % CHORDS.length]); step++; }
+
+  function start() {
+    ensureCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    if (playing) return;
+    playing = true;
+    startNoise();
+    step = 0;
+    tickChord();
+    chordTimer  = setInterval(tickChord, CHORD_DUR * 1000);
+    melodyTimer = setInterval(playMelodyNote, MEL_INT);
+    localStorage.setItem(BGM_STATE_KEY, '1');
+    updateUI();
+  }
+
+  function stop() {
+    playing = false;
+    clearInterval(chordTimer);  chordTimer = null;
+    clearInterval(melodyTimer); melodyTimer = null;
+    if (noiseGain && ctx) noiseGain.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
+    if (noiseSrc && ctx) { try { noiseSrc.stop(ctx.currentTime + 1.5); } catch (e) {} noiseSrc = null; }
+    localStorage.setItem(BGM_STATE_KEY, '0');
+    updateUI();
+  }
+
+  function toggle() { playing ? stop() : start(); }
+
+  function setVol(v) {
+    vol = clampVol(v);
+    localStorage.setItem(BGM_VOL_KEY, String(vol));
+    if (master && ctx) master.gain.setTargetAtTime(vol, ctx.currentTime, 0.1);
+  }
+
+  function updateUI() {
+    const btn = document.getElementById('bgmBtn');
+    const st  = document.getElementById('bgmStatus');
+    if (!btn) return;
+    btn.classList.toggle('playing', playing);
+    if (st) st.textContent = playing ? '切ない夜 ♪' : 'BGM';
+    btn.title = playing
+      ? 'BGM再生中: なんだか切ない夜（クリックで停止）'
+      : 'BGM: なんだか切ない夜（クリックで再生）';
+  }
+
+  return { toggle, setVol, updateUI, getVol: () => vol, isPlaying: () => playing };
+})();
+
+document.getElementById('bgmBtn').addEventListener('click', () => BGM.toggle());
+(() => {
+  const bgmVol = document.getElementById('bgmVol');
+  bgmVol.value = String(Math.round(BGM.getVol() * 100));
+  bgmVol.addEventListener('input', e => BGM.setVol(Number(e.target.value) / 100));
+  BGM.updateUI();
+  // 前回ONだった場合、自動再生ポリシーの都合で最初のユーザー操作時に再開
+  if (localStorage.getItem(BGM_STATE_KEY) === '1') {
+    const kick = (e) => {
+      if (e.target && e.target.closest && e.target.closest('#bgmBtn')) return; // ボタンは自前で処理
+      if (!BGM.isPlaying()) BGM.toggle();
+      document.removeEventListener('pointerdown', kick);
+      document.removeEventListener('keydown', kick);
+    };
+    document.addEventListener('pointerdown', kick);
+    document.addEventListener('keydown', kick);
+  }
+})();
 
 // =================== INIT ===================
 switchView('library');
